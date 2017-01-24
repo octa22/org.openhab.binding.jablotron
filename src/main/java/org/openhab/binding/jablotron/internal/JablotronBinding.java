@@ -106,6 +106,36 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         if (StringUtils.isNotBlank(refreshIntervalString)) {
             refreshInterval = Long.parseLong(refreshIntervalString);
         }
+
+        String emailString = (String) configuration.get("email");
+        if (StringUtils.isNotBlank(emailString)) {
+            email = emailString;
+        }
+
+        String passwordString = (String) configuration.get("password");
+        if (StringUtils.isNotBlank(passwordString)) {
+            password = passwordString;
+        }
+
+        String armACodeString = (String) configuration.get("armACode");
+        if (StringUtils.isNotBlank(armACodeString)) {
+            armACode = armACodeString;
+        }
+
+        String armBCodeString = (String) configuration.get("armBCode");
+        if (StringUtils.isNotBlank(armBCodeString)) {
+            armBCode = armBCodeString;
+        }
+
+        String armABCCodeString = (String) configuration.get("armABCCode");
+        if (StringUtils.isNotBlank(armABCCodeString)) {
+            armABCCode = armABCCodeString;
+        }
+
+        String disarmCodeString = (String) configuration.get("disarmCode");
+        if (StringUtils.isNotBlank(disarmCodeString)) {
+            disarmCode = disarmCodeString;
+        }
     }
 
     /**
