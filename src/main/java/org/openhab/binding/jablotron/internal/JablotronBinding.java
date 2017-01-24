@@ -404,7 +404,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                 if (connection.getHeaderField(i).startsWith("PHPSESSID")) {
                     int semicolon = connection.getHeaderField(i).indexOf(";");
                     String cookie = connection.getHeaderField(i).substring(0, semicolon);
-                    logger.info(cookie);
+                    logger.debug(cookie);
                     return cookie;
                 }
             }
