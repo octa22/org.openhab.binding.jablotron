@@ -15,6 +15,7 @@ import org.apache.commons.lang.StringUtils;
 import org.openhab.binding.jablotron.JablotronBindingProvider;
 import org.openhab.core.binding.AbstractActiveBinding;
 import org.openhab.core.items.ItemRegistry;
+import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.State;
@@ -30,7 +31,12 @@ import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.Map;
 
 
@@ -205,12 +211,17 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         }
         String line = sendGetStatusRequest();
         logger.info(line);
-        JsonObject jobject = parser.parse(line).getAsJsonObject();
-        if( jobject != null && jobject.get("status").getAsInt() == 200) {
+        JsonObject jobject = (line != null) ? parser.parse(line).getAsJsonObject() : null;
+        if (isOKStatus(jobject)) {
             JsonArray jarray = jobject.get("sekce").getAsJsonArray();
-            int stavA = jarray.get(0).getAsJsonObject().get("stav").getAsInt();
-            int stavB = jarray.get(1).getAsJsonObject().get("stav").getAsInt();
-            int stavABC = jarray.get(2).getAsJsonObject().get("stav").getAsInt();
+            int stavA = getState(jarray, 0);
+            int stavB = getState(jarray, 1);
+            int stavABC = getState(jarray, 2);
+
+            JsonArray jarrayPG = jobject.get("pgm").getAsJsonArray();
+            int stavPGX = getState(jarrayPG, 0);
+            int stavPGY = getState(jarrayPG, 1);
+
             for (final JablotronBindingProvider provider : providers) {
                 for (final String itemName : provider.getItemNames()) {
                     String type = getItemSection(itemName);
@@ -219,34 +230,61 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                     try {
                         oldState = itemRegistry.getItem(itemName).getState();
                         newState = oldState;
-                        switch(type) {
+                        switch (type) {
                             case "A":
-                                newState = (stavA == 0) ? OnOffType.OFF : OnOffType.ON;
+                                newState = (stavA == 1) ? OnOffType.ON : OnOffType.OFF;
                                 break;
                             case "B":
-                                newState = (stavB == 0) ? OnOffType.OFF : OnOffType.ON;
+                                newState = (stavB == 1) ? OnOffType.ON : OnOffType.OFF;
                                 break;
                             case "ABC":
-                                newState = (stavABC == 0) ? OnOffType.OFF : OnOffType.ON;
+                                newState = (stavABC == 1) ? OnOffType.ON : OnOffType.OFF;
+                                break;
+                            case "PGX":
+                                newState = (stavPGX == 1) ? OnOffType.ON : OnOffType.OFF;
+                                break;
+                            case "PGY":
+                                newState = (stavPGY == 1) ? OnOffType.ON : OnOffType.OFF;
+                                break;
+                            case "lasteventtime":
+                                long lastEventTime = jobject.get("last_entry").getAsJsonObject().get("cid").getAsJsonObject().get("time").getAsLong();
+                                Date lastEvent = getZonedDateTime(lastEventTime);
+                                logger.info("Last event time: " + lastEvent);
+                                Calendar cal = Calendar.getInstance();
+                                cal.setTime(lastEvent);
+                                newState = new DateTimeType(cal);
                                 break;
                         }
-                        if( !newState.equals(oldState)) {
+                        if (!newState.equals(oldState)) {
                             eventPublisher.postUpdate(itemName, newState);
                         }
-                    }
-                    catch(Exception ex)
-                    {
+                    } catch (Exception ex) {
                         logger.error(ex.toString());
                         loggedIn = false;
                     }
                 }
             }
-        }
-        else
-        {
+        } else {
             logger.error("Cannot get Jablotron alarm status!");
             loggedIn = false;
         }
+    }
+
+    private Date getZonedDateTime(long lastEventTime) {
+        Instant dt = Instant.ofEpochSecond(lastEventTime);
+        ZonedDateTime zdt = ZonedDateTime.ofInstant(dt, ZoneId.of("Europe/Prague"));
+        return Date.from(zdt.toInstant());
+    }
+
+    private int getState(JsonArray jarray, int pos) {
+        if (jarray != null && jarray.size() > pos && jarray.get(pos).isJsonObject() && jarray.get(pos).getAsJsonObject().has("stav")) {
+            return jarray.get(pos).getAsJsonObject().get("stav").getAsInt();
+        } else
+            return -1;
+    }
+
+    private boolean isOKStatus(JsonObject jobject) {
+        return jobject != null && jobject.has("status") && jobject.get("status").getAsInt() == 200;
     }
 
     private String sendGetStatusRequest() {
@@ -296,7 +334,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             }
 
             String line = readResponse(connection);
-            logger.info(line);
+            logger.info("Response: " + line);
         } catch (Exception ex) {
             logger.error(ex.toString());
         }
@@ -332,10 +370,8 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             logger.debug("Response: " + line);
             JsonObject jobject = parser.parse(line).getAsJsonObject();
 
-            int code = jobject.get("status").getAsInt();
-            if (code != 200) {
+            if (!isOKStatus(jobject))
                 return;
-            }
 
             //cloud request
             url = JABLOTRON_URL + "cloud";
@@ -365,7 +401,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             connection.setRequestProperty("Referer", "https://www.jablonet.net/");
             connection.setRequestProperty("Cookie", session);
 
-            loggedIn = (code == 200 && connection.getResponseCode() == 200);
+            loggedIn = (connection.getResponseCode() == 200);
             if (loggedIn) {
                 logger.info("Successfully logged to Jablotron cloud!");
             }
@@ -440,6 +476,10 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         }
 
         String section = getItemSection(itemName);
+        if (section.startsWith("PG")) {
+            logger.info("Controlling of PGX/Y outputs is not supported!");
+            return;
+        }
 
         if (command.equals(OnOffType.ON)) {
             switch (section) {
@@ -453,7 +493,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                     sendUserCode(armABCCode);
                     break;
                 default:
-                    logger.info("Received command for section: " + section);
+                    logger.error("Received command for unknown section: " + section);
             }
         }
 
