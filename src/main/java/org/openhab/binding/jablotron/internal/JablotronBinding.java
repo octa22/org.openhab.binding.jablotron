@@ -210,7 +210,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             login();
         }
         String line = sendGetStatusRequest();
-        logger.info(line);
+        logger.debug(line);
         JsonObject jobject = (line != null) ? parser.parse(line).getAsJsonObject() : null;
         if (isOKStatus(jobject)) {
             JsonArray jarray = jobject.get("sekce").getAsJsonArray();
@@ -249,7 +249,6 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                             case "lasteventtime":
                                 long lastEventTime = jobject.get("last_entry").getAsJsonObject().get("cid").getAsJsonObject().get("time").getAsLong();
                                 Date lastEvent = getZonedDateTime(lastEventTime);
-                                logger.info("Last event time: " + lastEvent);
                                 Calendar cal = Calendar.getInstance();
                                 cal.setTime(lastEvent);
                                 newState = new DateTimeType(cal);
@@ -334,7 +333,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             }
 
             String line = readResponse(connection);
-            logger.info("Response: " + line);
+            logger.debug("Response: " + line);
         } catch (Exception ex) {
             logger.error(ex.toString());
         }
@@ -410,7 +409,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         } catch (MalformedURLException e) {
             logger.error("The URL '" + url + "' is malformed: " + e.toString());
         } catch (Exception e) {
-            logger.error("Cannot get SomfyTahoma login cookie: " + e.toString());
+            logger.error("Cannot get Jablotron login cookie: " + e.toString());
         }
     }
 
@@ -477,7 +476,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
 
         String section = getItemSection(itemName);
         if (section.startsWith("PG")) {
-            logger.info("Controlling of PGX/Y outputs is not supported!");
+            logger.error("Controlling of PGX/Y outputs is not supported!");
             return;
         }
 
