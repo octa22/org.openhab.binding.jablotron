@@ -206,6 +206,10 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         // the frequently executed code (polling) goes here ...
         logger.debug("execute() method is called!");
 
+        if (!bindingsExist()) {
+            return;
+        }
+
         if (!loggedIn) {
             login();
         }
