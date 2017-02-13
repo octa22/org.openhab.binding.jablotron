@@ -55,6 +55,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
     private final String JABLOTRON_URL = "https://www.jablonet.net/";
     private final String SERVICE_URL = "app/oasis?service=";
     private final String AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.59 Safari/537.36";
+    private final int MAX_SESSION_CYCLE = 50;
 
     private String email = "";
     private String password = "";
@@ -69,6 +70,8 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
     private String armABCCode = "";
     private String disarmCode = "";
 
+    //cycle
+    private int cycle = randomWithRange(0, MAX_SESSION_CYCLE - 1);
 
     /**
      * The BundleContext. This is only valid when the bundle is ACTIVE. It is set in the activate()
@@ -82,7 +85,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
      * the refresh interval which is used to poll values from the Jablotron
      * server (optional, defaults to 60000ms)
      */
-    private long refreshInterval = 15000;
+    private long refreshInterval = 8000;
 
     //Gson parser
     private JsonParser parser = new JsonParser();
@@ -172,6 +175,31 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         this.bundleContext = null;
         // deallocate resources here that are no longer needed and
         // should be reset when activating this binding again
+        if (loggedIn) {
+            logout();
+        }
+    }
+
+    private void logout() {
+
+        String url = JABLOTRON_URL + "logout";
+        try {
+            URL cookieUrl = new URL(url);
+
+            HttpsURLConnection connection = (HttpsURLConnection) cookieUrl.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setRequestProperty("User-Agent", AGENT);
+            connection.setRequestProperty("Accept-Language", "cs-CZ");
+            connection.setRequestProperty("Accept-Encoding", "gzip, deflate");
+            connection.setRequestProperty("Referer", "https://www.jablonet.net/cloud");
+            connection.setRequestProperty("Cookie", session);
+
+            readResponse(connection);
+            loggedIn = false;
+        } catch (Exception e) {
+            logger.error(e.toString());
+        }
+        return;
     }
 
     public void setItemRegistry(ItemRegistry itemRegistry) {
@@ -204,10 +232,19 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
     @Override
     protected void execute() {
         // the frequently executed code (polling) goes here ...
-        logger.debug("execute() method is called!");
+        //logger.debug("execute() method is called!");
 
         if (!bindingsExist()) {
             return;
+        }
+
+        //add some random behaviour
+        cycle++;
+        if (cycle > MAX_SESSION_CYCLE) {
+            cycle = randomWithRange(0, MAX_SESSION_CYCLE - 1);
+            if (loggedIn) {
+                logout();
+            }
         }
 
         if (!loggedIn) {
@@ -215,8 +252,8 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         }
         String line = sendGetStatusRequest();
         logger.debug(line);
-        JsonObject jobject = (line != null) ? parser.parse(line).getAsJsonObject() : null;
-        if (isOKStatus(jobject)) {
+        JsonObject jobject = (line != null && !line.equals("")) ? parser.parse(line).getAsJsonObject() : null;
+        if (isOKStatus(jobject) && jobject.has("sekce") && jobject.has("pgm")) {
             JsonArray jarray = jobject.get("sekce").getAsJsonArray();
             int stavA = getState(jarray, 0);
             int stavB = getState(jarray, 1);
@@ -273,6 +310,11 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         }
     }
 
+    int randomWithRange(int min, int max) {
+        int range = (max - min) + 1;
+        return (int) (Math.random() * range) + min;
+    }
+
     private Date getZonedDateTime(long lastEventTime) {
         Instant dt = Instant.ofEpochSecond(lastEventTime);
         ZonedDateTime zdt = ZonedDateTime.ofInstant(dt, ZoneId.of("Europe/Prague"));
@@ -309,7 +351,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         } catch (Exception e) {
             logger.error(e.toString());
         }
-        return "";
+        return null;
     }
 
     private void sendUserCode(String code) {
@@ -430,7 +472,9 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             pos = name.indexOf("</a>");
             name = name.substring(0, pos);
             name = name.replace(JABLOTRON_URL + SERVICE_URL + service + "\">", "");
-            logger.info("Found Jablotron service: " + name + " id: " + service);
+            if (!service.equals(this.service)) {
+                logger.info("Found Jablotron service: " + name + " id: " + service);
+            }
             return service;
         }
         return "";
