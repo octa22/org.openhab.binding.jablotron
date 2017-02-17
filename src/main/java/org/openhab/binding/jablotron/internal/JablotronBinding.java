@@ -238,37 +238,38 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             return;
         }
 
-        //add some random behaviour
-        cycle++;
-        if (cycle > MAX_SESSION_CYCLE) {
-            cycle = randomWithRange(0, MAX_SESSION_CYCLE - 1);
-            if (loggedIn) {
-                logout();
+        try {
+            //add some random behaviour
+            cycle++;
+            if (cycle > MAX_SESSION_CYCLE) {
+                cycle = randomWithRange(0, MAX_SESSION_CYCLE - 1);
+                if (loggedIn) {
+                    logout();
+                }
             }
-        }
 
-        if (!loggedIn) {
-            login();
-        }
-        String line = sendGetStatusRequest();
-        logger.debug(line);
-        JsonObject jobject = (line != null && !line.equals("")) ? parser.parse(line).getAsJsonObject() : null;
-        if (isOKStatus(jobject) && jobject.has("sekce") && jobject.has("pgm")) {
-            JsonArray jarray = jobject.get("sekce").getAsJsonArray();
-            int stavA = getState(jarray, 0);
-            int stavB = getState(jarray, 1);
-            int stavABC = getState(jarray, 2);
+            if (!loggedIn) {
+                login();
+            }
+            String line = sendGetStatusRequest();
+            logger.debug(line);
+            JsonObject jobject = (line != null && !line.equals("")) ? parser.parse(line).getAsJsonObject() : null;
+            if (isOKStatus(jobject) && jobject.has("sekce") && jobject.has("pgm")) {
+                JsonArray jarray = jobject.get("sekce").getAsJsonArray();
+                int stavA = getState(jarray, 0);
+                int stavB = getState(jarray, 1);
+                int stavABC = getState(jarray, 2);
 
-            JsonArray jarrayPG = jobject.get("pgm").getAsJsonArray();
-            int stavPGX = getState(jarrayPG, 0);
-            int stavPGY = getState(jarrayPG, 1);
+                JsonArray jarrayPG = jobject.get("pgm").getAsJsonArray();
+                int stavPGX = getState(jarrayPG, 0);
+                int stavPGY = getState(jarrayPG, 1);
 
-            for (final JablotronBindingProvider provider : providers) {
-                for (final String itemName : provider.getItemNames()) {
-                    String type = getItemSection(itemName);
-                    State oldState;
-                    State newState;
-                    try {
+                for (final JablotronBindingProvider provider : providers) {
+                    for (final String itemName : provider.getItemNames()) {
+                        String type = getItemSection(itemName);
+                        State oldState;
+                        State newState;
+
                         oldState = itemRegistry.getItem(itemName).getState();
                         newState = oldState;
                         switch (type) {
@@ -298,14 +299,14 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                         if (!newState.equals(oldState)) {
                             eventPublisher.postUpdate(itemName, newState);
                         }
-                    } catch (Exception ex) {
-                        logger.error(ex.toString());
-                        loggedIn = false;
                     }
                 }
+            } else {
+                logger.error("Cannot get Jablotron alarm status!");
+                loggedIn = false;
             }
-        } else {
-            logger.error("Cannot get Jablotron alarm status!");
+        } catch (Exception ex) {
+            logger.error(ex.toString());
             loggedIn = false;
         }
     }
