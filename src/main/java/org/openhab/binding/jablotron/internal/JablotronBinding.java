@@ -55,7 +55,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
     private final String JABLOTRON_URL = "https://www.jablonet.net/";
     private final String SERVICE_URL = "app/oasis?service=";
     private final String AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.59 Safari/537.36";
-    private final int MAX_SESSION_CYCLE = 50;
+    private final int MAX_SESSION_CYCLE = 500;
 
     private String email = "";
     private String password = "";
@@ -69,6 +69,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
     private String armBCode = "";
     private String armABCCode = "";
     private String disarmCode = "";
+    boolean controlDisabled = true;
 
     //cycle
     private int cycle = randomWithRange(0, MAX_SESSION_CYCLE - 1);
@@ -188,11 +189,10 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
 
             HttpsURLConnection connection = (HttpsURLConnection) cookieUrl.openConnection();
             connection.setRequestMethod("GET");
-            connection.setRequestProperty("User-Agent", AGENT);
-            connection.setRequestProperty("Accept-Language", "cs-CZ");
-            connection.setRequestProperty("Accept-Encoding", "gzip, deflate");
-            connection.setRequestProperty("Referer", "https://www.jablonet.net/cloud");
+            connection.setRequestProperty("Referer", "https://www.jablonet.net/app/oasis?service=" + service);
             connection.setRequestProperty("Cookie", session);
+            connection.setRequestProperty("Upgrade-Insecure-Requests", "1");
+            setConnectionDefaults(connection);
 
             readResponse(connection);
             loggedIn = false;
@@ -241,11 +241,9 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         try {
             //add some random behaviour
             cycle++;
-            if (cycle > MAX_SESSION_CYCLE) {
+            if (loggedIn && cycle > MAX_SESSION_CYCLE) {
                 cycle = randomWithRange(0, MAX_SESSION_CYCLE - 1);
-                if (loggedIn) {
-                    logout();
-                }
+                logout();
             }
 
             if (!loggedIn) {
@@ -254,7 +252,11 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             String line = sendGetStatusRequest();
             logger.debug(line);
             JsonObject jobject = (line != null && !line.equals("")) ? parser.parse(line).getAsJsonObject() : null;
+
+
             if (isOKStatus(jobject) && jobject.has("sekce") && jobject.has("pgm")) {
+
+                controlDisabled = isControlDisabled(jobject);
                 JsonArray jarray = jobject.get("sekce").getAsJsonArray();
                 int stavA = getState(jarray, 0);
                 int stavB = getState(jarray, 1);
@@ -311,6 +313,13 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         }
     }
 
+    private boolean isControlDisabled(JsonObject jobject) {
+        if (jobject.has("controlDisabled")) {
+            return jobject.get("controlDisabled").getAsBoolean();
+        }
+        return true;
+    }
+
     int randomWithRange(int min, int max) {
         int range = (max - min) + 1;
         return (int) (Math.random() * range) + min;
@@ -341,11 +350,10 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
 
             HttpsURLConnection connection = (HttpsURLConnection) cookieUrl.openConnection();
             connection.setRequestMethod("GET");
-            connection.setRequestProperty("User-Agent", AGENT);
-            connection.setRequestProperty("Accept-Language", "cs-CZ");
-            connection.setRequestProperty("Accept-Encoding", "gzip, deflate");
-            connection.setRequestProperty("Referer", "https://www.jablonet.net/app/oasis");
+            connection.setRequestProperty("Referer", "https://www.jablonet.net/app/oasis?service=" + service);
             connection.setRequestProperty("Cookie", session);
+            connection.setRequestProperty("X-Requested-With", "XMLHttpRequest");
+            setConnectionDefaults(connection);
 
             return readResponse(connection);
 
@@ -366,15 +374,12 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             URL cookieUrl = new URL(url);
             HttpsURLConnection connection = (HttpsURLConnection) cookieUrl.openConnection();
             connection.setDoOutput(true);
-            connection.setInstanceFollowRedirects(false);
             connection.setRequestMethod("POST");
-            connection.setRequestProperty("User-Agent", AGENT);
-            connection.setRequestProperty("Accept-Language", "cs-CZ");
-            connection.setRequestProperty("Accept-Encoding", "gzip, deflate");
             connection.setRequestProperty("Referer", "https://www.jablonet.net/app/oasis?service=" + service);
             connection.setRequestProperty("Cookie", session);
             connection.setRequestProperty("Content-Length", Integer.toString(postData.length));
-            connection.setUseCaches(false);
+            connection.setRequestProperty("X-Requested-With", "XMLHttpRequest");
+            setConnectionDefaults(connection);
             try (DataOutputStream wr = new DataOutputStream(connection.getOutputStream())) {
                 wr.write(postData);
             }
@@ -398,14 +403,12 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             URL cookieUrl = new URL(url);
             HttpsURLConnection connection = (HttpsURLConnection) cookieUrl.openConnection();
             connection.setDoOutput(true);
-            connection.setInstanceFollowRedirects(false);
             connection.setRequestMethod("POST");
-            connection.setRequestProperty("User-Agent", AGENT);
-            connection.setRequestProperty("Accept-Language", "cs-CZ");
-            connection.setRequestProperty("Accept-Encoding", "gzip, deflate");
             connection.setRequestProperty("Referer", "https://www.jablonet.net/");
             connection.setRequestProperty("Content-Length", Integer.toString(postData.length));
-            connection.setUseCaches(false);
+            connection.setRequestProperty("X-Requested-With", "XMLHttpRequest");
+
+            setConnectionDefaults(connection);
             try (DataOutputStream wr = new DataOutputStream(connection.getOutputStream())) {
                 wr.write(postData);
             }
@@ -424,11 +427,10 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             cookieUrl = new URL(url);
             connection = (HttpsURLConnection) cookieUrl.openConnection();
             connection.setRequestMethod("GET");
-            connection.setRequestProperty("User-Agent", AGENT);
-            connection.setRequestProperty("Accept-Language", "cs-CZ");
-            connection.setRequestProperty("Accept-Encoding", "gzip, deflate");
             connection.setRequestProperty("Referer", "https://www.jablonet.net/");
             connection.setRequestProperty("Cookie", session);
+            connection.setRequestProperty("Upgrade-Insecure-Requests", "1");
+            setConnectionDefaults(connection);
 
             service = getJablotronService(readResponse(connection));
 
@@ -441,11 +443,10 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             cookieUrl = new URL(url);
             connection = (HttpsURLConnection) cookieUrl.openConnection();
             connection.setRequestMethod("GET");
-            connection.setRequestProperty("User-Agent", AGENT);
-            connection.setRequestProperty("Accept-Language", "cs-CZ");
-            connection.setRequestProperty("Accept-Encoding", "gzip, deflate");
             connection.setRequestProperty("Referer", "https://www.jablonet.net/");
             connection.setRequestProperty("Cookie", session);
+            connection.setRequestProperty("Upgrade-Insecure-Requests", "1");
+            setConnectionDefaults(connection);
 
             loggedIn = (connection.getResponseCode() == 200);
             if (loggedIn) {
@@ -458,6 +459,14 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         } catch (Exception e) {
             logger.error("Cannot get Jablotron login cookie: " + e.toString());
         }
+    }
+
+    private void setConnectionDefaults(HttpsURLConnection connection) {
+        connection.setInstanceFollowRedirects(false);
+        connection.setRequestProperty("User-Agent", AGENT);
+        connection.setRequestProperty("Accept-Language", "cs-CZ");
+        connection.setRequestProperty("Accept-Encoding", "gzip, deflate");
+        connection.setUseCaches(false);
     }
 
     private String getJablotronService(String response) {
@@ -518,7 +527,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         // the code being executed when a command was sent on the openHAB
         // event bus goes here. This method is only called if one of the
         // BindingProviders provide a binding for the given 'itemName'.
-        logger.debug("internalReceiveCommand({},{}) is called!", itemName, command);
+        //logger.debug("internalReceiveCommand({},{}) is called!", itemName, command);
         if (!(command instanceof OnOffType)) {
             return;
         }
@@ -529,25 +538,36 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             return;
         }
 
-        if (command.equals(OnOffType.ON)) {
-            switch (section) {
-                case "A":
-                    sendUserCode(armACode);
-                    break;
-                case "B":
-                    sendUserCode(armBCode);
-                    break;
-                case "ABC":
-                    sendUserCode(armABCCode);
-                    break;
-                default:
-                    logger.error("Received command for unknown section: " + section);
+        try {
+            if (command.equals(OnOffType.ON)) {
+
+                while (controlDisabled) {
+                    logger.info("Waiting for control enabling...");
+                    Thread.sleep(1000);
+                }
+
+                switch (section) {
+                    case "A":
+                        sendUserCode(armACode);
+                        break;
+                    case "B":
+                        sendUserCode(armBCode);
+                        break;
+                    case "ABC":
+                        sendUserCode(armABCCode);
+                        break;
+                    default:
+                        logger.error("Received command for unknown section: " + section);
+                }
             }
+
+            if (command.equals(OnOffType.OFF)) {
+                sendUserCode(disarmCode);
+            }
+        } catch (Exception e) {
+            logger.error(e.toString());
         }
 
-        if (command.equals(OnOffType.OFF)) {
-            sendUserCode(disarmCode);
-        }
     }
 
     private String getItemSection(String itemName) {
