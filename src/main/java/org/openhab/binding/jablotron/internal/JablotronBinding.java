@@ -344,7 +344,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
 
     private String sendGetStatusRequest() {
 
-        String url = JABLOTRON_URL + "app/oasis/ajax/stav.php";
+        String url = JABLOTRON_URL + "app/oasis/ajax/stav.php?_=" + Calendar.getInstance().getTimeInMillis();
         try {
             URL cookieUrl = new URL(url);
 
