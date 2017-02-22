@@ -390,7 +390,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         return null;
     }
 
-    private void sendUserCode(String code) {
+    private int sendUserCode(String code) {
         String url = null;
 
         try {
@@ -413,9 +413,14 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
 
             String line = readResponse(connection);
             logger.debug("Response: " + line);
+            JsonObject jobject = parser.parse(line).getAsJsonObject();
+            if (jobject != null && jobject.has("status")) {
+                return jobject.get("status").getAsInt();
+            }
         } catch (Exception ex) {
             logger.error(ex.toString());
         }
+        return 0;
     }
 
     private void login() {
@@ -570,7 +575,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             logger.error("Controlling of PGX/Y outputs is not supported!");
             return;
         }
-
+        int status = 0;
         try {
             if (command.equals(OnOffType.ON)) {
 
@@ -581,13 +586,13 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
 
                 switch (section) {
                     case "A":
-                        sendUserCode(armACode);
+                        status = sendUserCode(armACode);
                         break;
                     case "B":
-                        sendUserCode(armBCode);
+                        status = sendUserCode(armBCode);
                         break;
                     case "ABC":
-                        sendUserCode(armABCCode);
+                        status = sendUserCode(armABCCode);
                         break;
                     default:
                         logger.error("Received command for unknown section: " + section);
@@ -595,12 +600,31 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             }
 
             if (command.equals(OnOffType.OFF)) {
-                sendUserCode(disarmCode);
+                status = sendUserCode(disarmCode);
             }
+            handleHttpRequestStatus(status);
         } catch (Exception e) {
             logger.error(e.toString());
         }
 
+    }
+
+    private void handleHttpRequestStatus(int status) {
+        switch (status) {
+            case 201:
+                logout();
+                break;
+            case 300:
+                logger.error("Redirect not supported");
+                break;
+            case 800:
+                login();
+                break;
+            case 200:
+                break;
+            default:
+                logger.error("Unknown status code received: " + status);
+        }
     }
 
     private String getItemSection(String itemName) {
