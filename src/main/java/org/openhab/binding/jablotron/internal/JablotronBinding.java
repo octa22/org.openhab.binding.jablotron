@@ -69,7 +69,14 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
     private String armBCode = "";
     private String armABCCode = "";
     private String disarmCode = "";
-    boolean controlDisabled = true;
+
+    //Section states
+    private int stavA = 0;
+    private int stavB = 0;
+    private int stavABC = 0;
+    private int stavPGX = 0;
+    private int stavPGY = 0;
+    private boolean controlDisabled = true;
 
     //cycle
     private int cycle = randomWithRange(0, MAX_SESSION_CYCLE - 1);
@@ -239,12 +246,14 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         }
 
         try {
+            /*
             //add some random behaviour
             cycle++;
             if (loggedIn && cycle > MAX_SESSION_CYCLE) {
                 cycle = randomWithRange(0, MAX_SESSION_CYCLE - 1);
                 logout();
             }
+            */
 
             if (!loggedIn) {
                 login();
@@ -252,19 +261,29 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             String line = sendGetStatusRequest();
             logger.debug(line);
             JsonObject jobject = (line != null && !line.equals("")) ? parser.parse(line).getAsJsonObject() : null;
-
+            if (isNoSessionStatus(jobject)) {
+                loggedIn = false;
+                login();
+                line = sendGetStatusRequest();
+                jobject = (line != null && !line.equals("")) ? parser.parse(line).getAsJsonObject() : null;
+            }
+            if (isBusyStatus(jobject)) {
+                logger.info("OASIS is busy...giving up");
+                logout();
+                return;
+            }
 
             if (isOKStatus(jobject) && jobject.has("sekce") && jobject.has("pgm")) {
 
                 controlDisabled = isControlDisabled(jobject);
                 JsonArray jarray = jobject.get("sekce").getAsJsonArray();
-                int stavA = getState(jarray, 0);
-                int stavB = getState(jarray, 1);
-                int stavABC = getState(jarray, 2);
+                stavA = getState(jarray, 0);
+                stavB = getState(jarray, 1);
+                stavABC = getState(jarray, 2);
 
                 JsonArray jarrayPG = jobject.get("pgm").getAsJsonArray();
-                int stavPGX = getState(jarrayPG, 0);
-                int stavPGY = getState(jarrayPG, 1);
+                stavPGX = getState(jarrayPG, 0);
+                stavPGY = getState(jarrayPG, 1);
 
                 for (final JablotronBindingProvider provider : providers) {
                     for (final String itemName : provider.getItemNames()) {
@@ -342,6 +361,14 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         return jobject != null && jobject.has("status") && jobject.get("status").getAsInt() == 200;
     }
 
+    private boolean isNoSessionStatus(JsonObject jobject) {
+        return jobject != null && jobject.has("status") && jobject.get("status").getAsInt() == 800;
+    }
+
+    private boolean isBusyStatus(JsonObject jobject) {
+        return jobject != null && jobject.has("status") && jobject.get("status").getAsInt() == 201;
+    }
+
     private String sendGetStatusRequest() {
 
         String url = JABLOTRON_URL + "app/oasis/ajax/stav.php?_=" + Calendar.getInstance().getTimeInMillis();
@@ -368,7 +395,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
 
         try {
             url = JABLOTRON_URL + "app/oasis/ajax/ovladani.php";
-            String urlParameters = "section=STATE&status=1&code=" + code;
+            String urlParameters = "section=STATE&status=" + ((stavA == 1) ? "1" : "") + "&code=" + code;
             byte[] postData = urlParameters.getBytes(StandardCharsets.UTF_8);
 
             URL cookieUrl = new URL(url);
@@ -396,6 +423,12 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
 
         try {
             //login
+            stavA = 0;
+            stavB = 0;
+            stavABC = 0;
+            stavPGX = 0;
+            stavPGY = 0;
+
             url = JABLOTRON_URL + "ajax/login.php";
             String urlParameters = "login=" + email + "&heslo=" + password + "&aStatus=200&loginType=Login";
             byte[] postData = urlParameters.getBytes(StandardCharsets.UTF_8);
