@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<binding:binding id="jablotron"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:binding="http://eclipse.org/smarthome/schemas/binding/v1.0.0"
+        xsi:schemaLocation="http://eclipse.org/smarthome/schemas/binding/v1.0.0 http://eclipse.org/smarthome/schemas/binding-1.0.0.xsd">
+
+    <name>Jablotron Binding</name>
+    <description>Controls Jablotron alarm.</description>
+    <author>Ondrej Pecta</author>
+    
+    <service-id>org.openhab.jablotron</service-id>
+    <config-description>
+        <parameter name="email" type="text" required="true">
+            <label>A user email (login) to Jablonet portal.</label>
+        </parameter>
+        <parameter name="password" type="text" required="true">
+            <label>A user password to Jablonet portal.</label>
+        </parameter>
+        <parameter name="armACode" type="text" required="true">
+            <label>A user code for section A arming.</label>
+        </parameter>
+        <parameter name="armBCode" type="text" required="true">
+            <label>A user code for section B (A+B) arming.</label>
+        </parameter>
+        <parameter name="armABCCode" type="text" required="true">
+            <label>A user code for whole systems arming (all sections).</label>
+        </parameter>
+        <parameter name="disarmCode" type="text" required="true">
+            <label>A user code for system disarming (all sections).</label>
+        </parameter>
+    </config-description>
+
+
+</binding:binding>
