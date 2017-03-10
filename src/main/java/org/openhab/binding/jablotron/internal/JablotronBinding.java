@@ -196,7 +196,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
 
             HttpsURLConnection connection = (HttpsURLConnection) cookieUrl.openConnection();
             connection.setRequestMethod("GET");
-            connection.setRequestProperty("Referer", "https://www.jablonet.net/app/oasis?service=" + service);
+            connection.setRequestProperty("Referer", JABLOTRON_URL + SERVICE_URL + service);
             connection.setRequestProperty("Cookie", session);
             connection.setRequestProperty("Upgrade-Insecure-Requests", "1");
             setConnectionDefaults(connection);
@@ -377,7 +377,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
 
             HttpsURLConnection connection = (HttpsURLConnection) cookieUrl.openConnection();
             connection.setRequestMethod("GET");
-            connection.setRequestProperty("Referer", "https://www.jablonet.net/app/oasis?service=" + service);
+            connection.setRequestProperty("Referer", JABLOTRON_URL + SERVICE_URL + service);
             connection.setRequestProperty("Cookie", session);
             connection.setRequestProperty("X-Requested-With", "XMLHttpRequest");
             setConnectionDefaults(connection);
@@ -402,7 +402,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             HttpsURLConnection connection = (HttpsURLConnection) cookieUrl.openConnection();
             connection.setDoOutput(true);
             connection.setRequestMethod("POST");
-            connection.setRequestProperty("Referer", "https://www.jablonet.net/app/oasis?service=" + service);
+            connection.setRequestProperty("Referer", JABLOTRON_URL + SERVICE_URL + service);
             connection.setRequestProperty("Cookie", session);
             connection.setRequestProperty("Content-Length", Integer.toString(postData.length));
             connection.setRequestProperty("X-Requested-With", "XMLHttpRequest");
@@ -442,7 +442,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             HttpsURLConnection connection = (HttpsURLConnection) cookieUrl.openConnection();
             connection.setDoOutput(true);
             connection.setRequestMethod("POST");
-            connection.setRequestProperty("Referer", "https://www.jablonet.net/");
+            connection.setRequestProperty("Referer", JABLOTRON_URL);
             connection.setRequestProperty("Content-Length", Integer.toString(postData.length));
             connection.setRequestProperty("X-Requested-With", "XMLHttpRequest");
 
@@ -465,7 +465,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             cookieUrl = new URL(url);
             connection = (HttpsURLConnection) cookieUrl.openConnection();
             connection.setRequestMethod("GET");
-            connection.setRequestProperty("Referer", "https://www.jablonet.net/");
+            connection.setRequestProperty("Referer", JABLOTRON_URL);
             connection.setRequestProperty("Cookie", session);
             connection.setRequestProperty("Upgrade-Insecure-Requests", "1");
             setConnectionDefaults(connection);
@@ -481,7 +481,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             cookieUrl = new URL(url);
             connection = (HttpsURLConnection) cookieUrl.openConnection();
             connection.setRequestMethod("GET");
-            connection.setRequestProperty("Referer", "https://www.jablonet.net/");
+            connection.setRequestProperty("Referer", JABLOTRON_URL);
             connection.setRequestProperty("Cookie", session);
             connection.setRequestProperty("Upgrade-Insecure-Requests", "1");
             setConnectionDefaults(connection);
