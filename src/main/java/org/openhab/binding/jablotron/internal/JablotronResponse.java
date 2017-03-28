@@ -1,6 +1,7 @@
 package org.openhab.binding.jablotron.internal;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.slf4j.Logger;
@@ -14,6 +15,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Date;
+import java.util.Map;
 
 /**
  * Created by cen26597 on 23.3.2017.
@@ -192,7 +194,26 @@ public class JablotronResponse {
         return "";
     }
 
-    public String getReport() {
-        return hasReport() ? json.get("vypis").getAsJsonObject().toString() : "";
+    public void getReport() {
+        if (!hasReport()) {
+            return;
+        }
+
+        JsonObject jObject = json.get("vypis").getAsJsonObject();
+        for (Map.Entry<String, JsonElement> entry : jObject.entrySet()) {
+            String key = entry.getKey();
+            if (jObject.get(key) instanceof JsonObject) {
+                //each day
+                JsonObject event = jObject.get(key).getAsJsonObject();
+                for (Map.Entry<String, JsonElement> eventEntry : event.entrySet()) {
+                    String eventKey = eventEntry.getKey();
+                    if (event.get(eventKey) instanceof JsonObject) {
+                        JsonObject eventData = event.get(eventKey).getAsJsonObject();
+                        logger.info("Time: " + eventKey + " code: " + eventData.get("code").getAsString() + " event: " + eventData.get("event").getAsString());
+                    }
+                }
+
+            }
+        }
     }
 }

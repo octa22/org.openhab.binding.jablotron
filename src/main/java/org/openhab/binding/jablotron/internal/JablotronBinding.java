@@ -269,15 +269,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                     return;
                 }
                 if (response.hasReport()) {
-                    //1138 Nepotvrzeny poplach
-                    //1301 Vypadek sitoveho napajeni
-                    //1401 Odjisteno
-                    //3301 Obnoveni sitoveho napajeni
-                    //3401 Zajisteno cele kodem
-                    //3402 Zajisteno castecne kodem
-                    //3408 Zajisteno plne klavesnici (bez kodu)
-
-                    logger.info(response.getReport());
+                    response.getReport();
                 }
 
                 if (response.isOKStatus() && response.hasSectionStatus()) {
