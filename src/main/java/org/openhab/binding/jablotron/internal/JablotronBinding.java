@@ -85,7 +85,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
      * the refresh interval which is used to poll values from the Jablotron
      * server (optional, defaults to 60000ms)
      */
-    private long refreshInterval = 10000;
+    private long refreshInterval = 8000;
 
     public JablotronBinding() {
     }
@@ -349,7 +349,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
 
     private JablotronResponse sendGetStatusRequest() {
 
-        String url = JABLOTRON_URL + "app/oasis/ajax/stav.php?_=" + Calendar.getInstance().getTimeInMillis();
+        String url = JABLOTRON_URL + "app/oasis/ajax/stav.php?" + getBrowserTimestamp();
         try {
             URL cookieUrl = new URL(url);
 
@@ -392,6 +392,9 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             JablotronResponse response = new JablotronResponse(connection);
             //String line = readResponse(connection);
             logger.debug("Response: " + response.getResponse());
+            int result =  response.getJablotronResult();
+            if(result != 1)
+                logger.error("Received error result: " + result);
             return response.getJablotronStatusCode();
         } catch (Exception ex) {
             logger.error(ex.toString());
@@ -441,7 +444,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
 
             //cloud request
 
-            url = JABLOTRON_URL + "ajax/widget-new.php";
+            url = JABLOTRON_URL + "ajax/widget-new.php?" + getBrowserTimestamp();;
             cookieUrl = new URL(url);
             connection = (HttpsURLConnection) cookieUrl.openConnection();
             connection.setRequestMethod("GET");
@@ -458,34 +461,33 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                 return;
             }
 
-            if (response.getResponseCode() != 200) {
+            if (response.getResponseCode() != 200 || !response.isOKStatus()) {
                 return;
             }
 
-            if (response.isOKStatus()) {
-                if (response.getWidgetsCount() == 0) {
-                    logger.error("Cannot found any jablotron device");
-                    return;
-                }
-                service = response.getServiceId(0);
-
-                //service request
-                url = response.getServiceUrl(0);
-                logger.info("Found Jablotron service: " + response.getServiceName(0) + " id: " + service);
-
-                cookieUrl = new URL(url);
-                connection = (HttpsURLConnection) cookieUrl.openConnection();
-                connection.setRequestMethod("GET");
-                connection.setRequestProperty("Referer", JABLOTRON_URL);
-                connection.setRequestProperty("Cookie", session);
-                connection.setRequestProperty("Upgrade-Insecure-Requests", "1");
-                setConnectionDefaults(connection);
-
-                loggedIn = (connection.getResponseCode() == 200);
-                if (loggedIn) {
-                    logger.info("Successfully logged to Jablotron cloud!");
-                }
+            if (response.getWidgetsCount() == 0) {
+                logger.error("Cannot found any jablotron device");
+                return;
             }
+            service = response.getServiceId(0);
+
+            //service request
+            url = response.getServiceUrl(0);
+            logger.info("Found Jablotron service: " + response.getServiceName(0) + " id: " + service);
+
+            cookieUrl = new URL(url);
+            connection = (HttpsURLConnection) cookieUrl.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setRequestProperty("Referer", JABLOTRON_URL);
+            connection.setRequestProperty("Cookie", session);
+            connection.setRequestProperty("Upgrade-Insecure-Requests", "1");
+            setConnectionDefaults(connection);
+
+            loggedIn = (connection.getResponseCode() == 200);
+            if (loggedIn) {
+                logger.info("Successfully logged to Jablotron cloud!");
+            }
+
 
 
         } catch (MalformedURLException e) {
@@ -493,6 +495,10 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         } catch (Exception e) {
             logger.error("Cannot get Jablotron login cookie: " + e.toString());
         }
+    }
+
+    private String getBrowserTimestamp() {
+        return "_=" + System.currentTimeMillis();
     }
 
     private void setConnectionDefaults(HttpsURLConnection connection) {

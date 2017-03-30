@@ -216,4 +216,8 @@ public class JablotronResponse {
             }
         }
     }
+
+    public int getJablotronResult() {
+        return (responseCode == 200 && json != null && json.has("vysledek")) ? json.get("vysledek").getAsInt() : -1;
+    }
 }
