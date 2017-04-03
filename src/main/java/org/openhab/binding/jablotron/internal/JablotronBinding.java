@@ -44,15 +44,13 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
     private static final Logger logger =
             LoggerFactory.getLogger(JablotronBinding.class);
 
-    private final String JABLOTRON_URL = "https://www.jablonet.net/";
-    private final String SERVICE_URL = "app/oasis?service=";
-    private final String AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.59 Safari/537.36";
-    private final int MAX_SESSION_CYCLE = 500;
+    private final String JABLOTRON_URL = "https://api.jablonet.net/api/1.4/";
 
     private String email = "";
     private String password = "";
     private String session;
-    private String service;
+    private String serviceId;
+    private String serviceName;
     private boolean loggedIn = false;
     private ArrayList<String> cookies = new ArrayList<>();
 
@@ -69,9 +67,6 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
     private int stavPGX = 0;
     private int stavPGY = 0;
     private boolean controlDisabled = true;
-
-    //cycle
-    //private int cycle = randomWithRange(0, MAX_SESSION_CYCLE - 1);
 
     /**
      * The BundleContext. This is only valid when the bundle is ACTIVE. It is set in the activate()
@@ -95,7 +90,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
      * Called by the SCR to activate the component with its configuration read from CAS
      *
      * @param bundleContext BundleContext of the Bundle that defines this component
-     * @param configuration Configuration properties for this component obtained from the ConfigAdmin service
+     * @param configuration Configuration properties for this component obtained from the ConfigAdmin serviceId
      */
     public void activate(final BundleContext bundleContext, final Map<String, Object> configuration) {
         this.bundleContext = bundleContext;
@@ -145,7 +140,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
     }
 
     /**
-     * Called by the SCR when the configuration of a binding has been changed through the ConfigAdmin service.
+     * Called by the SCR when the configuration of a binding has been changed through the ConfigAdmin serviceId.
      *
      * @param configuration Updated configuration properties
      */
@@ -180,15 +175,13 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
 
     private void logout() {
 
-        String url = JABLOTRON_URL + "logout";
+        String url = JABLOTRON_URL + "logout.json";
         try {
             URL cookieUrl = new URL(url);
 
             HttpsURLConnection connection = (HttpsURLConnection) cookieUrl.openConnection();
             connection.setRequestMethod("GET");
-            connection.setRequestProperty("Referer", JABLOTRON_URL + SERVICE_URL + service);
             connection.setRequestProperty("Cookie", session);
-            connection.setRequestProperty("Upgrade-Insecure-Requests", "1");
             setConnectionDefaults(connection);
 
             JablotronResponse response = new JablotronResponse(connection);
@@ -243,7 +236,6 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                 login();
             }
             if (loggedIn) {
-
                 JablotronResponse response = sendGetStatusRequest();
                 if (response.getException() != null) {
                     logger.error(response.getException().toString());
@@ -257,22 +249,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                     return;
                 }
 
-                if (response.isNoSessionStatus()) {
-                    loggedIn = false;
-                    controlDisabled = true;
-                    login();
-                    response = sendGetStatusRequest();
-                }
-                if (response.isBusyStatus()) {
-                    logger.warn("OASIS is busy...giving up");
-                    logout();
-                    return;
-                }
-                if (response.hasReport()) {
-                    response.getReport();
-                }
-
-                if (response.isOKStatus() && response.hasSectionStatus()) {
+                if (response.isOKStatus()) {
                     readAlarmStatus(response);
                 } else {
                     logger.error("Cannot get alarm status!");
@@ -286,14 +263,14 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
     }
 
     private void readAlarmStatus(JablotronResponse response) {
-        controlDisabled = response.isControlDisabled();
+        controlDisabled = false;//response.isControlDisabled();
 
-        stavA = response.getSectionState(0);
+        stavA = response.getSectionState(2);
         stavB = response.getSectionState(1);
-        stavABC = response.getSectionState(2);
+        stavABC = response.getSectionState(0);
 
-        stavPGX = response.getPGState(0);
-        stavPGY = response.getPGState(1);
+        stavPGX = response.getPGState(1);
+        stavPGY = response.getPGState(0);
 
         for (final JablotronBindingProvider provider : providers) {
             for (final String itemName : provider.getItemNames()) {
@@ -340,25 +317,24 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         }
     }
 
-    /*
-    private int randomWithRange(int min, int max) {
-        int range = (max - min) + 1;
-        return (int) (Math.random() * range) + min;
-    }*/
-
-
     private JablotronResponse sendGetStatusRequest() {
 
-        String url = JABLOTRON_URL + "app/oasis/ajax/stav.php?" + getBrowserTimestamp();
+        String url = JABLOTRON_URL + "dataUpdate.json";
         try {
             URL cookieUrl = new URL(url);
+            String urlParameters = "data=[{ \"filter_data\":[{\"data_type\":\"section\"},{\"data_type\":\"pgm\"}],\"service_type\":\"" + serviceName + "\",\"service_id\":" + serviceId + ",\"data_group\":\"serviceData\"},{\"checksum\":\"1\",\"data_group\":\"peripheryData\"}]";
+            byte[] postData = urlParameters.getBytes(StandardCharsets.UTF_8);
 
             HttpsURLConnection connection = (HttpsURLConnection) cookieUrl.openConnection();
-            connection.setRequestMethod("GET");
-            connection.setRequestProperty("Referer", JABLOTRON_URL + SERVICE_URL + service);
+            connection.setRequestMethod("POST");
+            connection.setDoOutput(true);
             connection.setRequestProperty("Cookie", session);
-            connection.setRequestProperty("X-Requested-With", "XMLHttpRequest");
+            connection.setRequestProperty("Content-Length", Integer.toString(postData.length));
             setConnectionDefaults(connection);
+
+            try (DataOutputStream wr = new DataOutputStream(connection.getOutputStream())) {
+                wr.write(postData);
+            }
 
             return new JablotronResponse(connection);
 
@@ -372,34 +348,36 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         String url = null;
 
         try {
-            url = JABLOTRON_URL + "app/oasis/ajax/ovladani.php";
-            String urlParameters = "section=STATE&status=" + ((stavA == 1) ? "1" : "") + "&code=" + code;
+            url = JABLOTRON_URL + "controlSegment.json";
+            String urlParameters = "service_type=" + serviceName + "&serviceId=" + serviceId + "&segmentId=STATE&segmentKey=&expected_status=partialSet&control_time=" + getControlTime() + "&control_code=" + code + "&system=Android&client_id=null";
             byte[] postData = urlParameters.getBytes(StandardCharsets.UTF_8);
 
             URL cookieUrl = new URL(url);
             HttpsURLConnection connection = (HttpsURLConnection) cookieUrl.openConnection();
             connection.setDoOutput(true);
             connection.setRequestMethod("POST");
-            connection.setRequestProperty("Referer", JABLOTRON_URL + SERVICE_URL + service);
             connection.setRequestProperty("Cookie", session);
             connection.setRequestProperty("Content-Length", Integer.toString(postData.length));
-            connection.setRequestProperty("X-Requested-With", "XMLHttpRequest");
             setConnectionDefaults(connection);
             try (DataOutputStream wr = new DataOutputStream(connection.getOutputStream())) {
                 wr.write(postData);
             }
 
             JablotronResponse response = new JablotronResponse(connection);
-            //String line = readResponse(connection);
             logger.debug("Response: " + response.getResponse());
-            int result =  response.getJablotronResult();
-            if(result != 1)
-                logger.error("Received error result: " + result);
-            return response.getJablotronStatusCode();
+            if (response.getException() != null) {
+                logger.error(response.getException().toString());
+                return 0;
+            }
+            return response.getResponseCode();
         } catch (Exception ex) {
             logger.error(ex.toString());
         }
         return 0;
+    }
+
+    private String getControlTime() {
+        return String.valueOf(System.currentTimeMillis() / 1000);
     }
 
     private void login() {
@@ -413,17 +391,15 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             stavPGX = 0;
             stavPGY = 0;
 
-            url = JABLOTRON_URL + "ajax/login.php";
-            String urlParameters = "login=" + email + "&heslo=" + password + "&aStatus=200&loginType=Login";
+            url = JABLOTRON_URL + "login.json";
+            String urlParameters = "login=" + email + "&password=" + password + "&version=3.2.3&selected_lang=cs&selected_country=cz&system=Android";
             byte[] postData = urlParameters.getBytes(StandardCharsets.UTF_8);
 
             URL cookieUrl = new URL(url);
             HttpsURLConnection connection = (HttpsURLConnection) cookieUrl.openConnection();
             connection.setDoOutput(true);
             connection.setRequestMethod("POST");
-            connection.setRequestProperty("Referer", JABLOTRON_URL);
             connection.setRequestProperty("Content-Length", Integer.toString(postData.length));
-            connection.setRequestProperty("X-Requested-With", "XMLHttpRequest");
 
             setConnectionDefaults(connection);
             try (DataOutputStream wr = new DataOutputStream(connection.getOutputStream())) {
@@ -442,16 +418,21 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             //get cookie
             session = response.getCookie();
 
-            //cloud request
-
-            url = JABLOTRON_URL + "ajax/widget-new.php?" + getBrowserTimestamp();;
+            logger.info("Getting serviceId info...");
+            //serviceId info
+            url = JABLOTRON_URL + "getServiceList.json";
+            urlParameters = "visibility=default&list_type=extended&system=Android";
+            postData = urlParameters.getBytes(StandardCharsets.UTF_8);
             cookieUrl = new URL(url);
             connection = (HttpsURLConnection) cookieUrl.openConnection();
-            connection.setRequestMethod("GET");
-            connection.setRequestProperty("Referer", JABLOTRON_URL + "cloud");
+            connection.setDoOutput(true);
+            connection.setRequestMethod("POST");
             connection.setRequestProperty("Cookie", session);
-            connection.setRequestProperty("X-Requested-With", "XMLHttpRequest");
+
             setConnectionDefaults(connection);
+            try (DataOutputStream wr = new DataOutputStream(connection.getOutputStream())) {
+                wr.write(postData);
+            }
 
             //line = readResponse(connection);
             response = new JablotronResponse(connection);
@@ -465,30 +446,17 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                 return;
             }
 
-            if (response.getWidgetsCount() == 0) {
+            if (response.getServicesCount() == 0) {
                 logger.error("Cannot found any jablotron device");
                 return;
             }
-            service = response.getServiceId(0);
 
-            //service request
-            url = response.getServiceUrl(0);
-            logger.info("Found Jablotron service: " + response.getServiceName(0) + " id: " + service);
+            serviceId = response.getServiceId(0);
+            serviceName = response.getServiceName(0);
 
-            cookieUrl = new URL(url);
-            connection = (HttpsURLConnection) cookieUrl.openConnection();
-            connection.setRequestMethod("GET");
-            connection.setRequestProperty("Referer", JABLOTRON_URL);
-            connection.setRequestProperty("Cookie", session);
-            connection.setRequestProperty("Upgrade-Insecure-Requests", "1");
-            setConnectionDefaults(connection);
-
-            loggedIn = (connection.getResponseCode() == 200);
-            if (loggedIn) {
-                logger.info("Successfully logged to Jablotron cloud!");
-            }
-
-
+            loggedIn = true;
+            logger.info("Found Jablotron serviceId: " + serviceName + " id: " + serviceId);
+            logger.info("Successfully logged to Jablotron cloud!");
 
         } catch (MalformedURLException e) {
             logger.error("The URL '" + url + "' is malformed: " + e.toString());
@@ -497,15 +465,8 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         }
     }
 
-    private String getBrowserTimestamp() {
-        return "_=" + System.currentTimeMillis();
-    }
-
     private void setConnectionDefaults(HttpsURLConnection connection) {
         connection.setInstanceFollowRedirects(false);
-        connection.setRequestProperty("User-Agent", AGENT);
-        connection.setRequestProperty("Accept-Language", "cs-CZ");
-        connection.setRequestProperty("Accept-Encoding", "gzip, deflate");
         connection.setUseCaches(false);
     }
 

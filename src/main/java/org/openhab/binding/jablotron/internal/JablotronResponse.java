@@ -43,6 +43,7 @@ public class JablotronResponse {
             this.responseCode = connection.getResponseCode();
             this.response = readResponse(connection);
             this.cookie = getSessionCookie(connection);
+            logger.info(response);
             json = parser.parse(response).getAsJsonObject();
         } catch (Exception ex) {
             this.exception = ex;
@@ -70,14 +71,16 @@ public class JablotronResponse {
         return cookie;
     }
 
+    /*
     public int getJablotronStatusCode() {
-        return (json != null && json.has("status")) ? json.get("status").getAsInt() : 0;
-    }
+        return (json != null && json.has("status")) ? json.get("status").getAsBoolean() : false;
+    }*/
 
     public boolean isOKStatus() {
-        return getJablotronStatusCode() == 200;
+        return (json != null && json.has("status")) ? json.get("status").getAsBoolean() : false;
     }
 
+    /*
     public boolean isNoSessionStatus() {
         return getJablotronStatusCode() == 800;
     }
@@ -85,6 +88,7 @@ public class JablotronResponse {
     public boolean isBusyStatus() {
         return getJablotronStatusCode() == 201;
     }
+    */
 
     public boolean hasReport() {
         return json != null && json.has("vypis") && !json.get("vypis").isJsonNull();
@@ -128,34 +132,55 @@ public class JablotronResponse {
     }
 
     private int getState(JsonArray jarray, int pos) {
-        if (jarray != null && jarray.size() > pos && jarray.get(pos).isJsonObject() && jarray.get(pos).getAsJsonObject().has("stav")) {
-            return jarray.get(pos).getAsJsonObject().get("stav").getAsInt();
+        if (jarray != null && jarray.size() > pos && jarray.get(pos).isJsonObject() && jarray.get(pos).getAsJsonObject().has("segment_state")) {
+            return jarray.get(pos).getAsJsonObject().get("segment_state").getAsString().equals("set") ? 1 : 0;
         } else
             return -1;
     }
 
-    public int getSectionState(int i) {
-        if (json.has("sekce")) {
-            JsonArray jarray = json.get("sekce").getAsJsonArray();
-            return getState(jarray, i);
+    public int getStateByType(int i, String type) {
+        if (json.has("data") && json.get("data").getAsJsonObject().has("service_data")) {
+            JsonObject jo = json.get("data").getAsJsonObject().get("service_data").getAsJsonArray().get(0).getAsJsonObject();
+            JsonArray jarray = jo.get("data").getAsJsonArray();
+            for (int j = 0; j < jarray.size(); j++) {
+                jo = jarray.get(j).getAsJsonObject();
+                if (jo.has("data_type") && jo.get("data_type").getAsString().equals(type)) {
+                    JsonArray segments = jo.get("data").getAsJsonObject().get("segments").getAsJsonArray();
+                    return getState(segments, i);
+                }
+            }
+            return 0;
         } else
             return 0;
     }
 
+    public int getSectionState(int i) {
+        return getStateByType(i, "section");
+    }
+
     public int getPGState(int i) {
-        if (json.has("pgm")) {
-            JsonArray jarray = json.get("pgm").getAsJsonArray();
-            return getState(jarray, i);
+        return getStateByType(i, "pgm");
+    }
+
+    public long getSectionTime(int i) {
+        if (json.has("data") && json.get("data").getAsJsonObject().has("service_data")) {
+            JsonObject jo = json.get("data").getAsJsonObject().get("service_data").getAsJsonArray().get(0).getAsJsonObject();
+            JsonArray jarray = jo.get("data").getAsJsonArray();
+            for (int j = 0; j < jarray.size(); j++) {
+                jo = jarray.get(j).getAsJsonObject();
+                if (jo.has("data_type") && jo.get("data_type").getAsString().equals("pgm")) {
+                    JsonArray segments = jo.get("data").getAsJsonObject().get("segments").getAsJsonArray();
+                    return segments.get(0).getAsJsonObject().get("segment_last_change").getAsLong();
+                }
+            }
+            return 0;
         } else
             return 0;
     }
 
     public Date getLastResponseTime() {
-        if (json.has("last_entry")) {
-            long lastEventTime = json.get("last_entry").getAsJsonObject().get("cid").getAsJsonObject().get("time").getAsLong();
-            return getZonedDateTime(lastEventTime);
-        } else
-            return null;
+        long lastEventTime = getSectionTime(0);
+        return getZonedDateTime(lastEventTime);
     }
 
     private Date getZonedDateTime(long lastEventTime) {
@@ -164,32 +189,28 @@ public class JablotronResponse {
         return Date.from(zdt.toInstant());
     }
 
-    public int getWidgetsCount() {
-        return json.has("cnt-widgets") ? json.get("cnt-widgets").getAsInt() : 0;
+    public int getServicesCount() {
+
+        if (json.has("services")) {
+            JsonArray array = json.get("services").getAsJsonArray();
+            return array.size();
+        } else return 0;
     }
 
     public String getServiceId(int id) {
-        if (json.has("widgets")) {
-            JsonArray widgets = json.get("widgets").getAsJsonArray();
-            return String.valueOf(widgets.get(id).getAsInt());
-        }
-        return "";
-    }
-
-    public String getServiceUrl(int id) {
-        if (json.has("widget") && json.get("widget").getAsJsonArray().size() > id) {
-            JsonArray widget = json.get("widget").getAsJsonArray();
-            JsonObject jobject = widget.get(id).getAsJsonObject();
-            return jobject.has("url") ? jobject.get("url").getAsString() : "";
+        if (json.has("services")) {
+            JsonArray services = json.get("services").getAsJsonArray();
+            JsonObject jo = services.get(id).getAsJsonObject();
+            return String.valueOf(jo.get("id").getAsInt());
         }
         return "";
     }
 
     public String getServiceName(int id) {
-        if (json.has("widget") && json.get("widget").getAsJsonArray().size() > id) {
-            JsonArray widget = json.get("widget").getAsJsonArray();
+        if (json.has("services") && json.get("services").getAsJsonArray().size() > id) {
+            JsonArray widget = json.get("services").getAsJsonArray();
             JsonObject jobject = widget.get(id).getAsJsonObject();
-            return jobject.has("name") ? jobject.get("name").getAsString() : "";
+            return jobject.has("name") ? jobject.get("name").getAsString().toLowerCase() : "";
         }
         return "";
     }
@@ -217,7 +238,4 @@ public class JablotronResponse {
         }
     }
 
-    public int getJablotronResult() {
-        return (responseCode == 200 && json != null && json.has("vysledek")) ? json.get("vysledek").getAsInt() : -1;
-    }
 }
