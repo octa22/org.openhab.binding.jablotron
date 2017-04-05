@@ -80,6 +80,10 @@ public class JablotronResponse {
         return (json != null && json.has("status")) ? json.get("status").getAsBoolean() : false;
     }
 
+    public String getErrorStatus() {
+        return (json != null && json.has("error_status")) ? json.get("error_status").getAsString() : "";
+    }
+
     /*
     public boolean isNoSessionStatus() {
         return getJablotronStatusCode() == 800;

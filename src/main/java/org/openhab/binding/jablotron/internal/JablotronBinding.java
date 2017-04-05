@@ -369,6 +369,11 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                 logger.error(response.getException().toString());
                 return 0;
             }
+            if( !response.isOKStatus() ) {
+                logger.error(response.getErrorStatus());
+                return 800;
+            }
+
             return response.getResponseCode();
         } catch (Exception ex) {
             logger.error(ex.toString());
