@@ -349,7 +349,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
 
         try {
             url = JABLOTRON_URL + "controlSegment.json";
-            String urlParameters = "service_type=" + serviceName + "&serviceId=" + serviceId + "&segmentId=STATE&segmentKey=&expected_status=partialSet&control_time=" + getControlTime() + "&control_code=" + code + "&system=Android&client_id=null";
+            String urlParameters = "service=" + serviceName + "&serviceId=" + serviceId + "&segmentId=STATE&segmentKey=&expected_status=partialSet&control_time=" + getControlTime() + "&control_code=" + code + "&system=Android&client_id=null";
             byte[] postData = urlParameters.getBytes(StandardCharsets.UTF_8);
 
             URL cookieUrl = new URL(url);
