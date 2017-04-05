@@ -369,9 +369,20 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                 logger.error(response.getException().toString());
                 return 0;
             }
-            if( !response.isOKStatus() ) {
+
+            if (response.getResponseCode() != 200) {
+                logger.warn("Received response code: " + response.getResponseCode());
+                return 0;
+            }
+
+            if (!response.isOKStatus()) {
+                if( response.getErrorStatus().equals("not_logged_in"))
+                {
+                    logger.warn(response.getErrorStatus());
+                    return 800;
+                }
                 logger.error(response.getErrorStatus());
-                return 800;
+                return 0;
             }
 
             return response.getResponseCode();
@@ -417,8 +428,15 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                 return;
             }
 
-            if (!response.isOKStatus())
+            if (response.getResponseCode() != 200) {
+                logger.warn("Received response code: " + response.getResponseCode());
                 return;
+            }
+
+            if (!response.isOKStatus()) {
+                logger.error(response.getErrorStatus());
+                return;
+            }
 
             //get cookie
             session = response.getCookie();
@@ -447,7 +465,13 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                 return;
             }
 
-            if (response.getResponseCode() != 200 || !response.isOKStatus()) {
+            if (response.getResponseCode() != 200) {
+                logger.warn("Received response code: " + response.getResponseCode());
+                return;
+            }
+
+            if (!response.isOKStatus()) {
+                logger.error(response.getErrorStatus());
                 return;
             }
 
