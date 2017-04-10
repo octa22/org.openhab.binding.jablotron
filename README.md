@@ -1,5 +1,17 @@
 # org.openhab.binding.jablotron
-Currently supported and tested JA-82 OASIS alarm# org.openhab.binding.jablotron
+Currently supported and tested JA-82 OASIS alarm with internet connection to Jablonet cloud (e.g. using JA-82Y GSM module)
+
+#binding configuration
+```
+######################## Jablotron alarm ###########################
+
+jablotron:email={email}
+jablotron:password={password}
+jablotron:armACode={1234}
+jablotron:armBCode={2345}
+jablotron:armABCCode={3456}
+jablotron:disarmCode={9876}
+```
 
 #items file
 ```
