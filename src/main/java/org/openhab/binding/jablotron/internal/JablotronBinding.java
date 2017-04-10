@@ -66,7 +66,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
     private int stavABC = 0;
     private int stavPGX = 0;
     private int stavPGY = 0;
-    private boolean controlDisabled = true;
+    //private boolean controlDisabled = true;
 
     /**
      * The BundleContext. This is only valid when the bundle is ACTIVE. It is set in the activate()
@@ -190,7 +190,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             //logger.error(e.toString());
         } finally {
             loggedIn = false;
-            controlDisabled = true;
+            //controlDisabled = true;
         }
         return;
     }
@@ -263,7 +263,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
     }
 
     private void readAlarmStatus(JablotronResponse response) {
-        controlDisabled = false;//response.isControlDisabled();
+        //controlDisabled = false;//response.isControlDisabled();
 
         stavA = response.getSectionState(2);
         stavB = response.getSectionState(1);
@@ -441,7 +441,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             //get cookie
             session = response.getCookie();
 
-            logger.info("Getting serviceId info...");
+            //logger.info("Getting serviceId info...");
             //serviceId info
             url = JABLOTRON_URL + "getServiceList.json";
             urlParameters = "visibility=default&list_type=extended&system=Android";
@@ -507,7 +507,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         // the code being executed when a command was sent on the openHAB
         // event bus goes here. This method is only called if one of the
         // BindingProviders provide a binding for the given 'itemName'.
-        logger.info("internalReceiveCommand({},{}) is called!", itemName, command);
+        logger.debug("internalReceiveCommand({},{}) is called!", itemName, command);
         if (!(command instanceof OnOffType)) {
             return;
         }
@@ -521,10 +521,11 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         try {
             if (command.equals(OnOffType.ON)) {
 
+                /*
                 while (controlDisabled) {
                     logger.info("Waiting for control enabling...");
                     Thread.sleep(1000);
-                }
+                }*/
 
                 switch (section) {
                     case "A":

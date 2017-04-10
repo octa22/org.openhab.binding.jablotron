@@ -33,7 +33,6 @@ public class JablotronResponse {
     //Gson parser
     private JsonParser parser = new JsonParser();
 
-
     public JablotronResponse(Exception exception) {
         this.exception = exception;
     }
@@ -43,7 +42,7 @@ public class JablotronResponse {
             this.responseCode = connection.getResponseCode();
             this.response = readResponse(connection);
             this.cookie = getSessionCookie(connection);
-            logger.info(response);
+            logger.debug(response);
             json = parser.parse(response).getAsJsonObject();
         } catch (Exception ex) {
             this.exception = ex;
@@ -71,11 +70,6 @@ public class JablotronResponse {
         return cookie;
     }
 
-    /*
-    public int getJablotronStatusCode() {
-        return (json != null && json.has("status")) ? json.get("status").getAsBoolean() : false;
-    }*/
-
     public boolean isOKStatus() {
         return (json != null && json.has("status")) ? json.get("status").getAsBoolean() : false;
     }
@@ -83,16 +77,6 @@ public class JablotronResponse {
     public String getErrorStatus() {
         return (json != null && json.has("error_status")) ? json.get("error_status").getAsString() : "";
     }
-
-    /*
-    public boolean isNoSessionStatus() {
-        return getJablotronStatusCode() == 800;
-    }
-
-    public boolean isBusyStatus() {
-        return getJablotronStatusCode() == 201;
-    }
-    */
 
     public boolean hasReport() {
         return json != null && json.has("vypis") && !json.get("vypis").isJsonNull();
