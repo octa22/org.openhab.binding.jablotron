@@ -15,6 +15,7 @@ import org.openhab.core.items.ItemNotFoundException;
 import org.openhab.core.items.ItemRegistry;
 import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.OnOffType;
+import org.openhab.core.library.types.OpenClosedType;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.State;
 import org.osgi.framework.BundleContext;
@@ -69,6 +70,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
     private int stavPGX = 0;
     private int stavPGY = 0;
     private boolean controlDisabled = true;
+    private boolean inService = false;
 
     //cycle
     //private int cycle = randomWithRange(0, MAX_SESSION_CYCLE - 1);
@@ -198,6 +200,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         } finally {
             loggedIn = false;
             controlDisabled = true;
+            inService = false;
         }
         return;
     }
@@ -260,6 +263,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                 if (response.isNoSessionStatus()) {
                     loggedIn = false;
                     controlDisabled = true;
+                    inService = false;
                     login();
                     response = sendGetStatusRequest();
                 }
@@ -270,6 +274,12 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                 }
                 if (response.hasReport()) {
                     response.getReport();
+                }
+
+                inService = response.inService();
+
+                if (inService) {
+                    logger.warn("Alarm is in service mode...");
                 }
 
                 if (response.isOKStatus() && response.hasSectionStatus()) {
@@ -323,6 +333,9 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                         break;
                     case "PGY":
                         newState = (stavPGY == 1) ? OnOffType.ON : OnOffType.OFF;
+                        break;
+                    case "alarm":
+                        newState = (response.isAlarm()) ? OpenClosedType.OPEN : OpenClosedType.CLOSED;
                         break;
                     case "lasteventtime":
                         Date lastEvent = response.getLastResponseTime();
@@ -392,8 +405,8 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             JablotronResponse response = new JablotronResponse(connection);
             //String line = readResponse(connection);
             logger.debug("Response: " + response.getResponse());
-            int result =  response.getJablotronResult();
-            if(result != 1)
+            int result = response.getJablotronResult();
+            if (result != 1)
                 logger.error("Received error result: " + result);
             return response.getJablotronStatusCode();
         } catch (Exception ex) {
@@ -444,7 +457,8 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
 
             //cloud request
 
-            url = JABLOTRON_URL + "ajax/widget-new.php?" + getBrowserTimestamp();;
+            url = JABLOTRON_URL + "ajax/widget-new.php?" + getBrowserTimestamp();
+            ;
             cookieUrl = new URL(url);
             connection = (HttpsURLConnection) cookieUrl.openConnection();
             connection.setRequestMethod("GET");
@@ -489,7 +503,6 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             }
 
 
-
         } catch (MalformedURLException e) {
             logger.error("The URL '" + url + "' is malformed: " + e.toString());
         } catch (Exception e) {
@@ -531,6 +544,10 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         try {
             if (command.equals(OnOffType.ON)) {
 
+                if (inService) {
+                    logger.error("Alarm is in service mode, cannot send user code!");
+                    return;
+                }
                 while (controlDisabled) {
                     logger.info("Waiting for control enabling...");
                     Thread.sleep(1000);

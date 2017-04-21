@@ -15,7 +15,8 @@ jablotron:disarmCode={9876}
 
 #items file
 ```
-String  HouseAlarm "Alarm [%s]" <alarm>
+String  HouseArm "Arm [%s]" <alarm>
+Contact HouseAlarm "Alarm [%s]" <alarm> { jablotron="alarm" }
 Switch	ArmSectionA	"Garage arming"	<jablotron>	(Alarm)	{ jablotron="A" }
 Switch	ArmSectionAB	"1st floor arming"	<jablotron>	(Alarm)	{ jablotron="B" }
 Switch	ArmSectionABC	"2nd floor arming"	<jablotron>	(Alarm)	{ jablotron="ABC" }
@@ -26,7 +27,7 @@ Switch	ArmControlPGY	"PGY"	<jablotron>	(Alarm)	{ jablotron="PGY" }
 
 #sitemap example
 ```
-Text item=HouseAlarm icon="alarm" {
+Text item=HouseArm icon="alarm" {
     Switch item=ArmSectionA
     Switch item=ArmSectionAB
     Switch item=ArmSectionABC
@@ -38,16 +39,16 @@ Text item=HouseAlarm icon="alarm" {
 
 #rule example
 ```
-rule "Alarm"
+rule "Arm"
 when 
   Item ArmSectionA changed or Item ArmSectionAB changed or Item ArmSectionABC changed or 
   System started
 then
    if( ArmSectionA.state.toString == "ON" || ArmSectionAB.state.toString == "ON" || ArmSectionABC.state.toString == "ON")
-   {   postUpdate(HouseAlarm, "partial")  }
+   {   postUpdate(HouseArm, "partial")  }
    if( ArmSectionA.state.toString == "OFF" && ArmSectionAB.state.toString == "OFF" && ArmSectionABC.state.toString == "OFF")
-   {   postUpdate(HouseAlarm, "disarmed") }
+   {   postUpdate(HouseArm, "disarmed") }
    if( ArmSectionA.state.toString == "ON" && ArmSectionAB.state.toString == "ON" && ArmSectionABC.state.toString == "ON")
-   {   postUpdate(HouseAlarm, "armed")    }
+   {   postUpdate(HouseArm, "armed")    }
 end
 ```

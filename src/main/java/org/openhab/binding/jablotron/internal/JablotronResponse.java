@@ -127,6 +127,14 @@ public class JablotronResponse {
         return (json != null && json.has("controlDisabled")) ? json.get("controlDisabled").getAsBoolean() : true;
     }
 
+    public boolean inService() {
+        return (json != null && json.has("service")) ? json.get("service").getAsInt() == 1 : false;
+    }
+
+    public boolean isAlarm() {
+        return (json != null && json.has("isAlarm")) ? json.get("isAlarm").getAsInt() == 1 : false;
+    }
+
     private int getState(JsonArray jarray, int pos) {
         if (jarray != null && jarray.size() > pos && jarray.get(pos).isJsonObject() && jarray.get(pos).getAsJsonObject().has("stav")) {
             return jarray.get(pos).getAsJsonObject().get("stav").getAsInt();
