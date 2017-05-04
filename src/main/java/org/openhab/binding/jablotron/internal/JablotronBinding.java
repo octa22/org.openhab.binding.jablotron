@@ -57,6 +57,8 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
     private boolean loggedIn = false;
     private ArrayList<String> cookies = new ArrayList<>();
 
+    ArrayList<String> services = new ArrayList<>();
+
     //Section codes
     private String armACode = "";
     private String armBCode = "";
@@ -87,7 +89,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
      * the refresh interval which is used to poll values from the Jablotron
      * server (optional, defaults to 60000ms)
      */
-    private long refreshInterval = 8000;
+    private long refreshInterval = 60000;
 
     public JablotronBinding() {
     }
@@ -178,6 +180,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         if (loggedIn) {
             logout();
         }
+        services.clear();
     }
 
     private void logout() {
@@ -246,51 +249,57 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                 login();
             }
             if (loggedIn) {
-
-                JablotronResponse response = sendGetStatusRequest();
-                if (response.getException() != null) {
-                    logger.error(response.getException().toString());
-                    loggedIn = false;
-                    return;
-                }
-                logger.debug(response.getResponse());
-
-                if (response.getResponseCode() != 200) {
-                    logger.error("Cannot get alarm status, invalid response code: " + response.getResponseCode());
-                    return;
-                }
-
-                if (response.isNoSessionStatus()) {
-                    loggedIn = false;
-                    controlDisabled = true;
-                    inService = false;
-                    login();
-                    response = sendGetStatusRequest();
-                }
-                if (response.isBusyStatus()) {
-                    logger.warn("OASIS is busy...giving up");
-                    logout();
-                    return;
-                }
-                if (response.hasReport()) {
-                    response.getReport();
-                }
-
-                inService = response.inService();
-
-                if (inService) {
-                    logger.warn("Alarm is in service mode...");
-                }
-
-                if (response.isOKStatus() && response.hasSectionStatus()) {
-                    readAlarmStatus(response);
-                } else {
-                    logger.error("Cannot get alarm status!");
-                    loggedIn = false;
-                }
+                updateAlarmStatus();
             }
         } catch (Exception ex) {
             logger.error(ex.toString());
+            loggedIn = false;
+        } finally {
+            logout();
+        }
+    }
+
+    private void updateAlarmStatus() {
+        JablotronResponse response = sendGetStatusRequest();
+        if (response.getException() != null) {
+            logger.error(response.getException().toString());
+            loggedIn = false;
+            return;
+        }
+        logger.debug(response.getResponse());
+
+        if (response.getResponseCode() != 200) {
+            logger.error("Cannot get alarm status, invalid response code: " + response.getResponseCode());
+            return;
+        }
+
+        if (response.isNoSessionStatus()) {
+            loggedIn = false;
+            controlDisabled = true;
+            inService = false;
+            login();
+            response = sendGetStatusRequest();
+        }
+        if (response.isBusyStatus()) {
+            logger.warn("OASIS is busy...giving up");
+            logout();
+            return;
+        }
+        if (response.hasReport()) {
+            response.getReport();
+        }
+
+        inService = response.inService();
+
+        if (inService) {
+            logger.warn("Alarm is in service mode...");
+        }
+
+        if (response.isOKStatus() && response.hasSectionStatus()) {
+            readAlarmStatus(response);
+        } else {
+            logger.error("Cannot get alarm status!");
+            logger.error(response.getResponse());
             loggedIn = false;
         }
     }
@@ -408,12 +417,12 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                 }
                 response = new JablotronResponse(connection);
             }
-            //String line = readResponse(connection);
             logger.debug("Response: " + response.getResponse());
             int result = response.getJablotronResult();
             if (result != 1) {
                 logger.error("Received error result: " + result);
                 logger.error(response.getJson().toString());
+                return 0;
             }
             return response.getJablotronStatusCode();
         } catch (Exception ex) {
@@ -496,8 +505,10 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
 
                 //service request
                 url = response.getServiceUrl(0);
-                logger.info("Found Jablotron service: " + response.getServiceName(0) + " id: " + service);
-
+                if (!services.contains(service)) {
+                    services.add(service);
+                    logger.info("Found Jablotron service: " + response.getServiceName(0) + " id: " + service);
+                }
                 cookieUrl = new URL(url);
                 connection = (HttpsURLConnection) cookieUrl.openConnection();
                 connection.setRequestMethod("GET");
@@ -508,7 +519,9 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
 
                 loggedIn = (connection.getResponseCode() == 200);
                 if (loggedIn) {
-                    logger.info("Successfully logged to Jablotron cloud!");
+                    logger.debug("Successfully logged to Jablotron cloud!");
+                } else {
+                    logger.error("Cannot log in to Jablotron cloud!");
                 }
             }
 
@@ -539,7 +552,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         // the code being executed when a command was sent on the openHAB
         // event bus goes here. This method is only called if one of the
         // BindingProviders provide a binding for the given 'itemName'.
-        logger.info("internalReceiveCommand({},{}) is called!", itemName, command);
+        logger.debug("internalReceiveCommand({},{}) is called!", itemName, command);
         if (!(command instanceof OnOffType)) {
             return;
         }
@@ -551,6 +564,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         }
         int status = 0;
         try {
+            login();
             if (command.equals(OnOffType.ON)) {
 
                 if (inService) {
@@ -558,8 +572,9 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                     return;
                 }
                 while (controlDisabled) {
-                    logger.info("Waiting for control enabling...");
+                    logger.debug("Waiting for control enabling...");
                     Thread.sleep(1000);
+                    updateAlarmStatus();
                 }
 
                 switch (section) {
@@ -583,6 +598,8 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             handleHttpRequestStatus(status);
         } catch (Exception e) {
             logger.error(e.toString());
+            logout();
+        } finally {
             logout();
         }
 

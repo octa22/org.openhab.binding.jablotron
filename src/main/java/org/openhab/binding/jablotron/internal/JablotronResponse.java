@@ -226,6 +226,6 @@ public class JablotronResponse {
     }
 
     public int getJablotronResult() {
-        return (responseCode == 200 && json != null && json.has("vysledek")) ? json.get("vysledek").getAsInt() : -1;
+        return (responseCode == 200 && json != null && json.has("vysledek") && !json.get("vysledek").isJsonNull()) ? json.get("vysledek").getAsInt() : -1;
     }
 }
