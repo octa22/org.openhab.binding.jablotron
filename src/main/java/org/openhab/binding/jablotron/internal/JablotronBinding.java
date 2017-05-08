@@ -89,7 +89,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
      * the refresh interval which is used to poll values from the Jablotron
      * server (optional, defaults to 60000ms)
      */
-    private long refreshInterval = 60000;
+    private long refreshInterval = 900000;
 
     public JablotronBinding() {
     }
@@ -253,7 +253,6 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             }
         } catch (Exception ex) {
             logger.error(ex.toString());
-            loggedIn = false;
         } finally {
             logout();
         }
@@ -598,14 +597,13 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             handleHttpRequestStatus(status);
         } catch (Exception e) {
             logger.error(e.toString());
-            logout();
         } finally {
             logout();
         }
 
     }
 
-    private void handleHttpRequestStatus(int status) {
+    private void handleHttpRequestStatus(int status) throws InterruptedException {
         switch (status) {
             case 0:
                 logout();
@@ -620,6 +618,8 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                 login();
                 break;
             case 200:
+                Thread.sleep(5000);
+                updateAlarmStatus();
                 break;
             default:
                 logger.error("Unknown status code received: " + status);
