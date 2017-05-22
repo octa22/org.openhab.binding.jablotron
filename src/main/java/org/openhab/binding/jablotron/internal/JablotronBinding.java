@@ -11,8 +11,6 @@ package org.openhab.binding.jablotron.internal;
 import org.apache.commons.lang.StringUtils;
 import org.openhab.binding.jablotron.JablotronBindingProvider;
 import org.openhab.core.binding.AbstractActiveBinding;
-import org.openhab.core.items.ItemNotFoundException;
-import org.openhab.core.items.ItemRegistry;
 import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.OpenClosedType;
@@ -83,7 +81,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
      * was called.
      */
     private BundleContext bundleContext;
-    private ItemRegistry itemRegistry;
+    //private ItemRegistry itemRegistry;
 
     /**
      * the refresh interval which is used to poll values from the Jablotron
@@ -208,6 +206,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         return;
     }
 
+    /*
     public void setItemRegistry(ItemRegistry itemRegistry) {
         this.itemRegistry = itemRegistry;
     }
@@ -215,6 +214,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
     public void unsetItemRegistry(ItemRegistry itemRegistry) {
         this.itemRegistry = null;
     }
+    */
 
     /**
      * @{inheritDoc}
@@ -295,6 +295,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         }
 
         if (response.isOKStatus() && response.hasSectionStatus()) {
+            logger.info("Reading section status...");
             readAlarmStatus(response);
         } else {
             logger.error("Cannot get alarm status!");
@@ -316,9 +317,10 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         for (final JablotronBindingProvider provider : providers) {
             for (final String itemName : provider.getItemNames()) {
                 String type = getItemSection(itemName);
-                State oldState;
-                State newState;
+                //State oldState;
+                State newState = null;
 
+                /*
                 try {
                     oldState = itemRegistry.getItem(itemName).getState();
                 } catch (ItemNotFoundException e) {
@@ -326,6 +328,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                     oldState = null;
                 }
                 newState = oldState;
+                */
                 switch (type) {
                     case "A":
                         newState = (stavA == 1) ? OnOffType.ON : OnOffType.OFF;
@@ -354,7 +357,8 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                         }
                         break;
                 }
-                if (!newState.equals(oldState)) {
+
+                if (newState != null) {
                     eventPublisher.postUpdate(itemName, newState);
                 }
             }
@@ -391,12 +395,12 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         }
     }
 
-    private int sendUserCode(String code) {
+    private JablotronResponse sendUserCode(String code) {
         String url = null;
 
         try {
             url = JABLOTRON_URL + "app/oasis/ajax/ovladani.php";
-            String urlParameters = "section=STATE&status=" + ((stavA == 1) ? "1" : "") + "&code=" + code;
+            String urlParameters = "section=STATE&status=" + ((code.isEmpty()) ? "1" : "") + "&code=" + code;
             byte[] postData = urlParameters.getBytes(StandardCharsets.UTF_8);
 
             URL cookieUrl = new URL(url);
@@ -417,17 +421,18 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                 response = new JablotronResponse(connection);
             }
             logger.debug("Response: " + response.getResponse());
-            int result = response.getJablotronResult();
+            //int result = response.getJablotronResult();
+            /*
             if (result != 1) {
                 logger.error("Received error result: " + result);
                 logger.error(response.getJson().toString());
                 return 0;
-            }
-            return response.getJablotronStatusCode();
+            }*/
+            return response;
         } catch (Exception ex) {
             logger.error(ex.toString());
         }
-        return 0;
+        return null;
     }
 
     private void login() {
@@ -562,45 +567,67 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             return;
         }
         int status = 0;
+        int result = 0;
         try {
             login();
-            if (command.equals(OnOffType.ON)) {
 
-                if (inService) {
-                    logger.error("Alarm is in service mode, cannot send user code!");
-                    return;
-                }
-                while (controlDisabled) {
-                    logger.debug("Waiting for control enabling...");
-                    Thread.sleep(1000);
-                    updateAlarmStatus();
-                }
-
-                switch (section) {
-                    case "A":
-                        status = sendUserCode(armACode);
-                        break;
-                    case "B":
-                        status = sendUserCode(armBCode);
-                        break;
-                    case "ABC":
-                        status = sendUserCode(armABCCode);
-                        break;
-                    default:
-                        logger.error("Received command for unknown section: " + section);
-                }
+            if (inService) {
+                logger.error("Alarm is in service mode, cannot send user code!");
+                return;
+            }
+            while (controlDisabled) {
+                logger.debug("Waiting for control enabling...");
+                Thread.sleep(1000);
+                updateAlarmStatus();
             }
 
-            if (command.equals(OnOffType.OFF)) {
-                status = sendUserCode(disarmCode);
+            JablotronResponse response = sendUserCode("");
+            if (response == null) {
+                return;
             }
-            handleHttpRequestStatus(status);
+
+            status = response.getJablotronStatusCode();
+            result = response.getJablotronResult();
+            if (status == 200 && result == 4) {
+
+                if (command.equals(OnOffType.ON)) {
+                    logger.info("Sending arm code for section: " + section);
+                    switch (section) {
+                        case "A":
+                            response = sendUserCode(armACode);
+                            break;
+                        case "B":
+                            response = sendUserCode(armBCode);
+                            break;
+                        case "ABC":
+                            response = sendUserCode(armABCCode);
+                            break;
+                        default:
+                            logger.error("Received command for unknown section: " + section);
+                    }
+                } else {
+                    logger.info("Sending disarm code");
+                    response = sendUserCode(disarmCode);
+                }
+            } else {
+                logger.warn("Received unknown status: " + status);
+            }
+            handleJablotronResult(response);
+            handleHttpRequestStatus(response.getJablotronStatusCode());
         } catch (Exception e) {
             logger.error(e.toString());
         } finally {
             logout();
         }
 
+    }
+
+    private void handleJablotronResult(JablotronResponse response) {
+        int result = response.getJablotronResult();
+        if (result != 1) {
+            logger.error("Received error result: " + result);
+            logger.error(response.getJson().toString());
+        }
     }
 
     private void handleHttpRequestStatus(int status) throws InterruptedException {
@@ -618,7 +645,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                 login();
                 break;
             case 200:
-                Thread.sleep(5000);
+                //Thread.sleep(5000);
                 updateAlarmStatus();
                 break;
             default:
