@@ -295,7 +295,6 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         }
 
         if (response.isOKStatus() && response.hasSectionStatus()) {
-            logger.info("Reading section status...");
             readAlarmStatus(response);
         } else {
             logger.error("Cannot get alarm status!");
