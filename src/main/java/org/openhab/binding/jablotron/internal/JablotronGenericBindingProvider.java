@@ -11,10 +11,7 @@ package org.openhab.binding.jablotron.internal;
 import org.openhab.binding.jablotron.JablotronBindingProvider;
 import org.openhab.core.binding.BindingConfig;
 import org.openhab.core.items.Item;
-import org.openhab.core.library.items.ContactItem;
-import org.openhab.core.library.items.DateTimeItem;
-import org.openhab.core.library.items.DimmerItem;
-import org.openhab.core.library.items.SwitchItem;
+import org.openhab.core.library.items.*;
 import org.openhab.model.item.binding.AbstractGenericBindingProvider;
 import org.openhab.model.item.binding.BindingConfigParseException;
 
@@ -39,10 +36,10 @@ public class JablotronGenericBindingProvider extends AbstractGenericBindingProvi
 	 */
 	@Override
 	public void validateItemType(Item item, String bindingConfig) throws BindingConfigParseException {
-		if (!(item instanceof SwitchItem || item instanceof DateTimeItem || item instanceof ContactItem)) {
+		if (!(item instanceof SwitchItem || item instanceof DateTimeItem || item instanceof ContactItem || item instanceof StringItem)) {
 			throw new BindingConfigParseException("item '" + item.getName()
 					+ "' is of type '" + item.getClass().getSimpleName()
-					+ "', only Switch-, Contact- and DateTimeItems are allowed - please check your *.items configuration");
+					+ "', only String-, Switch-, Contact- and DateTimeItems are allowed - please check your *.items configuration");
 		}
 	}
 	

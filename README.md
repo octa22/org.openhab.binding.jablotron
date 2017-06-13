@@ -7,15 +7,12 @@ Currently supported and tested JA-82 OASIS alarm with internet connection to Jab
 
 jablotron:email={email}
 jablotron:password={password}
-jablotron:armACode={1234}
-jablotron:armBCode={2345}
-jablotron:armABCCode={3456}
-jablotron:disarmCode={9876}
 ```
 
 #items file
 ```
 String  HouseArm "Arm [%s]" <alarm>
+String  JablotronCode { jablotron="code", autoupdate="false" }
 Contact HouseAlarm "Alarm [%s]" <alarm> { jablotron="alarm" }
 Switch	ArmSectionA	"Garage arming"	<jablotron>	(Alarm)	{ jablotron="A" }
 Switch	ArmSectionAB	"1st floor arming"	<jablotron>	(Alarm)	{ jablotron="B" }
@@ -34,6 +31,8 @@ Text item=HouseArm icon="alarm" {
     Text item=LastArmEvent
     Switch item=ArmControlPGX
     Switch item=ArmControlPGY
+    Switch item=JablotronCode label="Arm" mappings=[1111=" A ",2222=" B ",3333="ABC"]
+    Switch item=JablotronCode label="Disarm" mappings=[5555="Disarm"]
 }
 ```
 

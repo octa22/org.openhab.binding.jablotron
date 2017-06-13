@@ -14,6 +14,7 @@ import org.openhab.core.binding.AbstractActiveBinding;
 import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.OpenClosedType;
+import org.openhab.core.library.types.StringType;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.State;
 import org.osgi.framework.BundleContext;
@@ -52,16 +53,9 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
     private String password = "";
     private String session = "";
     private String service;
-    private boolean loggedIn = false;
     private ArrayList<String> cookies = new ArrayList<>();
 
     ArrayList<String> services = new ArrayList<>();
-
-    //Section codes
-    private String armACode = "";
-    private String armBCode = "";
-    private String armABCCode = "";
-    private String disarmCode = "";
 
     //Section states
     private int stavA = 0;
@@ -124,26 +118,6 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         if (StringUtils.isNotBlank(passwordString)) {
             password = passwordString;
         }
-
-        String armACodeString = (String) configuration.get("armACode");
-        if (StringUtils.isNotBlank(armACodeString)) {
-            armACode = armACodeString;
-        }
-
-        String armBCodeString = (String) configuration.get("armBCode");
-        if (StringUtils.isNotBlank(armBCodeString)) {
-            armBCode = armBCodeString;
-        }
-
-        String armABCCodeString = (String) configuration.get("armABCCode");
-        if (StringUtils.isNotBlank(armABCCodeString)) {
-            armABCCode = armABCCodeString;
-        }
-
-        String disarmCodeString = (String) configuration.get("disarmCode");
-        if (StringUtils.isNotBlank(disarmCodeString)) {
-            disarmCode = disarmCodeString;
-        }
     }
 
     /**
@@ -175,7 +149,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         this.bundleContext = null;
         // deallocate resources here that are no longer needed and
         // should be reset when activating this binding again
-        if (loggedIn) {
+        if (!session.isEmpty()) {
             logout();
         }
         services.clear();
@@ -199,9 +173,9 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             //Silence
             //logger.error(e.toString());
         } finally {
-            loggedIn = false;
             controlDisabled = true;
             inService = false;
+            session = "";
         }
         return;
     }
@@ -240,40 +214,45 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         // the frequently executed code (polling) goes here ...
         logger.debug("execute() method is called!");
 
+        //There seems to be some weird behaviour in OH2.x. Sometimes binding does not exist...
+        /*
         if (!bindingsExist()) {
+            logger.info("No binding exist!");
             return;
-        }
+        }*/
 
-        try {
-            if (!loggedIn) {
-                login();
+        synchronized (session) {
+            try {
+                if (session.isEmpty()) {
+                    login();
+                }
+                if (!session.isEmpty()) {
+                    updateAlarmStatus();
+                }
+            } catch (Exception ex) {
+                logger.error(ex.toString());
+            } finally {
+                logout();
             }
-            if (loggedIn) {
-                updateAlarmStatus();
-            }
-        } catch (Exception ex) {
-            logger.error(ex.toString());
-        } finally {
-            logout();
         }
     }
 
-    private void updateAlarmStatus() {
+    private boolean updateAlarmStatus() {
         JablotronResponse response = sendGetStatusRequest();
         if (response.getException() != null) {
             logger.error(response.getException().toString());
-            loggedIn = false;
-            return;
+            session = "";
+            return false;
         }
         logger.debug(response.getResponse());
 
         if (response.getResponseCode() != 200) {
             logger.error("Cannot get alarm status, invalid response code: " + response.getResponseCode());
-            return;
+            return false;
         }
 
         if (response.isNoSessionStatus()) {
-            loggedIn = false;
+            session = "";
             controlDisabled = true;
             inService = false;
             login();
@@ -282,7 +261,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         if (response.isBusyStatus()) {
             logger.warn("OASIS is busy...giving up");
             logout();
-            return;
+            return false;
         }
         if (response.hasReport()) {
             response.getReport();
@@ -292,6 +271,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
 
         if (inService) {
             logger.warn("Alarm is in service mode...");
+            return false;
         }
 
         if (response.isOKStatus() && response.hasSectionStatus()) {
@@ -299,8 +279,10 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         } else {
             logger.error("Cannot get alarm status!");
             logger.error(response.getResponse());
-            loggedIn = false;
+            session = "";
+            return false;
         }
+        return true;
     }
 
     private void readAlarmStatus(JablotronResponse response) {
@@ -312,6 +294,14 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
 
         stavPGX = response.getPGState(0);
         stavPGY = response.getPGState(1);
+
+        /*
+        logger.info("Stav A: " + stavA);
+        logger.info("Stav B: " + stavB);
+        logger.info("Stav ABC: " + stavABC);
+        logger.info("Stav PGX: " + stavPGX);
+        logger.info("Stav PGY: " + stavPGY);
+        */
 
         for (final JablotronBindingProvider provider : providers) {
             for (final String itemName : provider.getItemNames()) {
@@ -520,8 +510,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                 connection.setRequestProperty("Upgrade-Insecure-Requests", "1");
                 setConnectionDefaults(connection);
 
-                loggedIn = (connection.getResponseCode() == 200);
-                if (loggedIn) {
+                if (connection.getResponseCode() == 200) {
                     logger.debug("Successfully logged to Jablotron cloud!");
                 } else {
                     logger.error("Cannot log in to Jablotron cloud!");
@@ -556,69 +545,53 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         // event bus goes here. This method is only called if one of the
         // BindingProviders provide a binding for the given 'itemName'.
         logger.debug("internalReceiveCommand({},{}) is called!", itemName, command);
-        if (!(command instanceof OnOffType)) {
+        if (!(command instanceof StringType)) {
             return;
         }
 
+        /*
         String section = getItemSection(itemName);
         if (section.startsWith("PG")) {
             logger.error("Controlling of PGX/Y outputs is not supported!");
             return;
-        }
+        }*/
         int status = 0;
         int result = 0;
-        try {
-            login();
 
-            if (inService) {
-                logger.error("Alarm is in service mode, cannot send user code!");
-                return;
-            }
-            while (controlDisabled) {
-                logger.debug("Waiting for control enabling...");
-                Thread.sleep(1000);
-                updateAlarmStatus();
-            }
-
-            JablotronResponse response = sendUserCode("");
-            if (response == null) {
-                return;
-            }
-
-            status = response.getJablotronStatusCode();
-            result = response.getJablotronResult();
-            if (status == 200 && result == 4) {
-
-                if (command.equals(OnOffType.ON)) {
-                    logger.info("Sending arm code for section: " + section);
-                    switch (section) {
-                        case "A":
-                            response = sendUserCode(armACode);
-                            break;
-                        case "B":
-                            response = sendUserCode(armBCode);
-                            break;
-                        case "ABC":
-                            response = sendUserCode(armABCCode);
-                            break;
-                        default:
-                            logger.error("Received command for unknown section: " + section);
-                    }
-                } else {
-                    logger.info("Sending disarm code");
-                    response = sendUserCode(disarmCode);
+        synchronized (session) {
+            try {
+                login();
+                if (!updateAlarmStatus()) {
+                    logger.error("Cannot send user code due to alarm status!");
+                    return;
                 }
-            } else {
-                logger.warn("Received unknown status: " + status);
-            }
-            handleJablotronResult(response);
-            handleHttpRequestStatus(response.getJablotronStatusCode());
-        } catch (Exception e) {
-            logger.error(e.toString());
-        } finally {
-            logout();
-        }
+                while (controlDisabled) {
+                    logger.debug("Waiting for control enabling...");
+                    Thread.sleep(1000);
+                    updateAlarmStatus();
+                }
 
+                JablotronResponse response = sendUserCode("");
+                if (response == null) {
+                    return;
+                }
+
+                status = response.getJablotronStatusCode();
+                result = response.getJablotronResult();
+                if (status == 200 && result == 4) {
+                    logger.debug("Sending user code: " + command.toString());
+                    response = sendUserCode(command.toString());
+                } else {
+                    logger.warn("Received unknown status: " + status);
+                }
+                handleJablotronResult(response);
+                handleHttpRequestStatus(response.getJablotronStatusCode());
+            } catch (Exception e) {
+                logger.error(e.toString());
+            } finally {
+                logout();
+            }
+        }
     }
 
     private void handleJablotronResult(JablotronResponse response) {
@@ -644,7 +617,8 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                 login();
                 break;
             case 200:
-                //Thread.sleep(5000);
+                updateAlarmStatus();
+                Thread.sleep(8000);
                 updateAlarmStatus();
                 break;
             default:
