@@ -129,7 +129,9 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
      */
     public void modified(final Map<String, Object> configuration) {
         // update the internal configuration accordingly
-        readConfiguration(configuration);
+        if (configuration != null) {
+            readConfiguration(configuration);
+        }
     }
 
     /**
