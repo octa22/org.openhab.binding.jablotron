@@ -11,6 +11,8 @@ package org.openhab.binding.jablotron.internal;
 import org.apache.commons.lang.StringUtils;
 import org.openhab.binding.jablotron.JablotronBindingProvider;
 import org.openhab.core.binding.AbstractActiveBinding;
+import org.openhab.core.items.ItemNotFoundException;
+import org.openhab.core.items.ItemRegistry;
 import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.OpenClosedType;
@@ -75,7 +77,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
      * was called.
      */
     private BundleContext bundleContext;
-    //private ItemRegistry itemRegistry;
+    private ItemRegistry itemRegistry;
 
     /**
      * the refresh interval which is used to poll values from the Jablotron
@@ -180,7 +182,6 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         return;
     }
 
-    /*
     public void setItemRegistry(ItemRegistry itemRegistry) {
         this.itemRegistry = itemRegistry;
     }
@@ -188,7 +189,6 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
     public void unsetItemRegistry(ItemRegistry itemRegistry) {
         this.itemRegistry = null;
     }
-    */
 
     /**
      * @{inheritDoc}
@@ -306,10 +306,10 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         for (final JablotronBindingProvider provider : providers) {
             for (final String itemName : provider.getItemNames()) {
                 String type = getItemSection(itemName);
-                //State oldState;
+                State oldState;
                 State newState = null;
 
-                /*
+
                 try {
                     oldState = itemRegistry.getItem(itemName).getState();
                 } catch (ItemNotFoundException e) {
@@ -317,7 +317,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                     oldState = null;
                 }
                 newState = oldState;
-                */
+
                 switch (type) {
                     case "A":
                         newState = (stavA == 1) ? OnOffType.ON : OnOffType.OFF;
@@ -347,7 +347,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                         break;
                 }
 
-                if (newState != null) {
+                if (newState != null && !newState.equals(oldState)) {
                     eventPublisher.postUpdate(itemName, newState);
                 }
             }
