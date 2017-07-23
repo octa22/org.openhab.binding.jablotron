@@ -312,7 +312,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                 try {
                     oldState = itemRegistry.getItem(itemName).getState();
                 } catch (ItemNotFoundException e) {
-                    logger.error(e.toString());
+                    logger.error("Item not found: {}", e.toString());
                     oldState = null;
                 }
                 newState = oldState;
@@ -378,7 +378,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             }
 
         } catch (Exception e) {
-            logger.error(e.toString());
+            logger.error("sendGetStatusRequest exception: {}", e.toString());
             return new JablotronResponse(e);
         }
     }
