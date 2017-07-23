@@ -232,7 +232,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                     updateAlarmStatus();
                 }
             } catch (Exception ex) {
-                logger.error(ex.toString());
+                logger.error("execute exception: {}", ex.toString());
             } finally {
                 logout();
             }
@@ -242,14 +242,14 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
     private boolean updateAlarmStatus() {
         JablotronResponse response = sendGetStatusRequest();
         if (response.getException() != null) {
-            logger.error(response.getException().toString());
+            logger.error("sendGetStatusRequest exception: {}", response.getException().toString());
             session = "";
             return false;
         }
-        logger.debug(response.getResponse());
+        logger.debug("sendGetStatusRequest response: {}", response.getResponse());
 
         if (response.getResponseCode() != 200) {
-            logger.error("Cannot get alarm status, invalid response code: " + response.getResponseCode());
+            logger.error("Cannot get alarm status, invalid response code: {}", response.getResponseCode());
             return false;
         }
 
@@ -279,8 +279,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         if (response.isOKStatus() && response.hasSectionStatus()) {
             readAlarmStatus(response);
         } else {
-            logger.error("Cannot get alarm status!");
-            logger.error(response.getResponse());
+            logger.error("Cannot get alarm status! {}", response.getResponse());
             session = "";
             return false;
         }
@@ -297,13 +296,11 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
         stavPGX = response.getPGState(0);
         stavPGY = response.getPGState(1);
 
-        /*
-        logger.info("Stav A: " + stavA);
-        logger.info("Stav B: " + stavB);
-        logger.info("Stav ABC: " + stavABC);
-        logger.info("Stav PGX: " + stavPGX);
-        logger.info("Stav PGY: " + stavPGY);
-        */
+        logger.debug("Stav A: {}" + stavA);
+        logger.debug("Stav B: {}", stavB);
+        logger.debug("Stav ABC: {}", stavABC);
+        logger.debug("Stav PGX: {}", stavPGX);
+        logger.debug("Stav PGY: {}", stavPGY);
 
         for (final JablotronBindingProvider provider : providers) {
             for (final String itemName : provider.getItemNames()) {
@@ -411,17 +408,10 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                 }
                 response = new JablotronResponse(connection);
             }
-            logger.debug("Response: " + response.getResponse());
-            //int result = response.getJablotronResult();
-            /*
-            if (result != 1) {
-                logger.error("Received error result: " + result);
-                logger.error(response.getJson().toString());
-                return 0;
-            }*/
+            logger.debug("sendUserCode response: {}", response.getResponse());
             return response;
         } catch (Exception ex) {
-            logger.error(ex.toString());
+            logger.error("sendUserCode exception: {}", ex.toString());
         }
         return null;
     }
@@ -458,7 +448,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
 
                 JablotronResponse response = new JablotronResponse(connection);
                 if (response.getException() != null) {
-                    logger.error(response.getException().toString());
+                    logger.error("JablotronResponse login exception: {}", response.getException());
                     return;
                 }
 
@@ -484,7 +474,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                 response = new JablotronResponse(connection);
 
                 if (response.getException() != null) {
-                    logger.error(response.getException().toString());
+                    logger.error("JablotronResponse widget exception: {}", response.getException().toString());
                     return;
                 }
 
@@ -502,7 +492,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                 url = response.getServiceUrl(0);
                 if (!services.contains(service)) {
                     services.add(service);
-                    logger.info("Found Jablotron service: " + response.getServiceName(0) + " id: " + service);
+                    logger.info("Found Jablotron service: {} id: {}", response.getServiceName(0), service);
                 }
                 cookieUrl = new URL(url);
                 connection = (HttpsURLConnection) cookieUrl.openConnection();
@@ -520,9 +510,9 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
             }
 
         } catch (MalformedURLException e) {
-            logger.error("The URL '" + url + "' is malformed: " + e.toString());
+            logger.error("The URL '{}' is malformed: {}", url, e.toString());
         } catch (Exception e) {
-            logger.error("Cannot get Jablotron login cookie: " + e.toString());
+            logger.error("Cannot get Jablotron login cookie: {}", e.toString());
         }
     }
 
@@ -581,15 +571,15 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                 status = response.getJablotronStatusCode();
                 result = response.getJablotronResult();
                 if (status == 200 && result == 4) {
-                    logger.debug("Sending user code: " + command.toString());
+                    logger.debug("Sending user code: {}", command.toString());
                     response = sendUserCode(command.toString());
                 } else {
-                    logger.warn("Received unknown status: " + status);
+                    logger.warn("Received unknown status: {}", status);
                 }
                 handleJablotronResult(response);
                 handleHttpRequestStatus(response.getJablotronStatusCode());
             } catch (Exception e) {
-                logger.error(e.toString());
+                logger.error("internalReceiveCommand exception: {}", e.toString());
             } finally {
                 logout();
             }
@@ -599,8 +589,10 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
     private void handleJablotronResult(JablotronResponse response) {
         int result = response.getJablotronResult();
         if (result != 1) {
-            logger.error("Received error result: " + result);
-            logger.error(response.getJson().toString());
+            logger.error("Received error result: {}", result);
+            if (response.getJson() != null) {
+                logger.error("JSON: {}", response.getJson().toString());
+            }
         }
     }
 
@@ -624,7 +616,7 @@ public class JablotronBinding extends AbstractActiveBinding<JablotronBindingProv
                 updateAlarmStatus();
                 break;
             default:
-                logger.error("Unknown status code received: " + status);
+                logger.error("Unknown status code received: {}", status);
         }
     }
 
