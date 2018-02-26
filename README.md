@@ -1,4 +1,11 @@
 # org.openhab.binding.jablotron
+This is the OpenHAB 1.x binding for Jablotron Alarms.
+This version is no longer supported neither maintained. I have moved to OH2 version.
+
+Please see 
+https://github.com/octa22/openhab2-addons/tree/jablotron-binding/addons/binding/org.openhab.binding.jablotron 
+
+
 Currently supported and tested JA-82 OASIS alarm with internet connection to Jablonet cloud (e.g. using JA-82Y GSM module)
 
 #binding configuration
